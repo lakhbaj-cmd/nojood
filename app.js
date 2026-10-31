@@ -519,10 +519,11 @@ if ($("login-form")) {
 
 
   function renderWorkout(c) {
-    const link = c.workout_link && /^https?:\/\//i.test(c.workout_link) ? c.workout_link : "";
-    $("wk-link").hidden = !link;
-    if (link) $("wk-link").href = link;
-    $("wk-none").hidden = !!link;
+    // 3 workout links: upper body, lower body, full body
+    const ok = v => v && /^https?:\/\//i.test(v) ? v : "";
+    const links = { "wk-upper": ok(c.workout_upper), "wk-lower": ok(c.workout_lower), "wk-link": ok(c.workout_link) };
+    Object.entries(links).forEach(([id, url]) => { $(id).hidden = !url; if (url) $(id).href = url; });
+    $("wk-none").hidden = Object.values(links).some(Boolean);
   }
 
   // ---------- Step 1: choose 7 days ----------
@@ -715,7 +716,7 @@ if ($("login-form")) {
       ing: "مكونات {name}: {ing}",
       kcal: "أكلت {eaten} من {target} سعرة اليوم. باقي لك {left} سعرة.",
       today: "جدول اليوم ({plan}):",
-      workout: "جدول تمارينك هنا: {link}", workout_none: "الأخصائية لسا ما أضافت جدول تمارين.", workout_basic: "باقتك ما فيها جدول تمارين. باقة تغذية + تمارين فيها جدول.",
+      workout: "جداول تمارينك:{link}", workout_none: "الأخصائية لسا ما أضافت جدول تمارين.", workout_basic: "باقتك ما فيها جدول تمارين. باقة تغذية + تمارين فيها جدول.",
       offday: "لو تبي اليوم يوم أوف اضغط زر \"🌿 يوم أوف\" فوق الوجبات.",
       change: "تغيير السعرات أو الجدول ترجع فيه للأخصائية نجود، أنا ما أقدر أغيّره.",
       health: "هذا سؤال صحي ولازم تسأل فيه الأخصائية نجود مباشرة. أنا ما أقدر أجاوب عليه.",
@@ -736,7 +737,7 @@ if ($("login-form")) {
       ing: "Ingredients for {name}: {ing}",
       kcal: "You've eaten {eaten} of {target} kcal today. {left} kcal left.",
       today: "Today's plan ({plan}):",
-      workout: "Your workout plan is here: {link}", workout_none: "Your dietitian hasn't added a workout plan yet.", workout_basic: "Your package doesn't include a workout plan. The Nutrition + Workout package does.",
+      workout: "Your workout plans:{link}", workout_none: "Your dietitian hasn't added a workout plan yet.", workout_basic: "Your package doesn't include a workout plan. The Nutrition + Workout package does.",
       offday: "If you want today off, tap the \"🌿 Off day\" button above your meals.",
       change: "Changing your calories or plan is up to your dietitian Nojood. I can't change it.",
       health: "That's a health question, so please ask your dietitian Nojood directly. I can't answer it.",
@@ -773,7 +774,8 @@ if ($("login-form")) {
     if (has(q, W.change) && has(q, W.kcal.concat(["جدول", "plan"]))) return ct("change");
     if (has(q, W.workout)) {
       if (!(PACKAGES[c.package] && PACKAGES[c.package].workout)) return ct("workout_basic");
-      return c.workout_link ? ct("workout", { link: c.workout_link }) : ct("workout_none");
+      const wl = [[t("wk_upper"), c.workout_upper], [t("wk_lower"), c.workout_lower], [t("wk_full"), c.workout_link]].filter(x => x[1]);
+      return wl.length ? ct("workout", { link: "\n" + wl.map(x => x[0] + ": " + x[1]).join("\n") }) : ct("workout_none");
     }
     if (has(q, W.offday)) return isOffToday(c) ? ct("off") : ct("offday");
     if (has(q, W.skip)) return ct("skip");
@@ -1039,9 +1041,12 @@ if ($("admin-login")) {
       [t("pt_package"), PACKAGES[c.package] ? t(PACKAGES[c.package].nameKey) : "—"], [t("f_health"), c.health || "—"], [t("f_food"), c.food || "—"]
     ];
     $("cd-info").innerHTML = rows.map(r => "<div><span class='muted small-label'>" + esc(r[0]) + "</span><div>" + esc(r[1]) + "</div></div>").join("");
-    $("wa-client").href = waLink(saudiNumber(c.phone), (LANG === "ar" ? "مرحباً " : "Hi ") + (c.name || "").split(" ")[0] + "، " + t("ib_alert_text"));
+    $("wa-client").href = waLink(saudiNumber(c.phone), (LANG === "ar" ? "مرحباً " : "Hi ") + (c.name || "").split(" ")[0]);
+    $("wa-client").textContent = "💬 " + t("ad_wa_client");
     $("cd-ib-pending").hidden = !c.inbody_requested;
     $("cd-workout").value = c.workout_link || "";
+    $("cd-workout-upper").value = c.workout_upper || "";
+    $("cd-workout-lower").value = c.workout_lower || "";
     $("cd-workout-card").hidden = !(PACKAGES[c.package] && PACKAGES[c.package].workout);  // basic package has no workout plan
     $("cd-kcal").value = c.kcal || "";
     $("cd-kcal-msg").textContent = "";
@@ -1100,9 +1105,9 @@ if ($("admin-login")) {
   $("reject-pay").addEventListener("click", () => changeClient({ pay_status: "rejected" }));
   $("send-ib").addEventListener("click", () => changeClient({ inbody_requested: true, inbody_requested_at: new Date().toISOString() }, t("ad_ib_sent")));
   $("cd-workout-save").addEventListener("click", async () => {
-    const v = $("cd-workout").value.trim();
-    if (v && !/^https?:\/\//i.test(v)) { $("cd-workout-msg").textContent = t("err_link"); return; }
-    await changeClient({ workout_link: v || null });
+    const vals = ["cd-workout-upper", "cd-workout-lower", "cd-workout"].map(id => $(id).value.trim());
+    if (vals.some(v => v && !/^https?:\/\//i.test(v))) { $("cd-workout-msg").textContent = t("err_link"); return; }
+    await changeClient({ workout_upper: vals[0] || null, workout_lower: vals[1] || null, workout_link: vals[2] || null });
     $("cd-workout-msg").textContent = t("ad_saved_ok");
   });
   $("cd-kcal-save").addEventListener("click", async () => {
@@ -1248,6 +1253,11 @@ if ($("admin-login")) {
     '<button class="btn" id="sg-btn" type="button"></button><div id="sg-out"></div>';
   const kcalBox = document.querySelector(".kcal-set");
   kcalBox.closest(".card").after(sgCard);
+  // WhatsApp button for the client, right above the agent suggestion
+  const waBtn = document.createElement("a");
+  waBtn.className = "btn wa"; waBtn.id = "wa-client"; waBtn.target = "_blank"; waBtn.rel = "noopener";
+  waBtn.style.marginTop = "12px"; waBtn.style.display = "flex"; waBtn.style.justifyContent = "center";
+  sgCard.before(waBtn);
   let sgState = null, sgOpt = "A", approveArmed = false;
   function sgLabels() { $("sg-title").textContent = ag("sg_title"); $("sg-note").textContent = ag("sg_note"); $("sg-btn").textContent = ag("sg_btn"); }
   sgLabels();

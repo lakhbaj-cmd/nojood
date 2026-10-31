@@ -35,7 +35,7 @@ if (isDemo()) {
       { id: "demo-sara", role: "client", name: "سارة أحمد", email: "sara@demo.sa", phone: "0500000000", sex: "female", age: 27, height: 162, weight: 68, activity: 1.375, goal: "lose",
         kcal: 1340, bmr: 1400, package: "plus", paid: true, pay_status: "confirmed", plans: SEVEN, today: { date: day(0), plan: 0, progress: { b: "done" } },
         history: [{ date: day(3), plan: 1, done: 5, skipped: 0 }, { date: day(2), plan: 3, done: 4, skipped: 1 }, { date: day(1), plan: 2, done: 5, skipped: 0 }],
-        workout_link: "https://www.youtube.com/results?search_query=home+workout+beginner", inbody_requested: false, health: "", food: "ما أحب السمك", created_at: ago(26), period_start: ago(26) },
+        workout_link: "https://www.youtube.com/results?search_query=full+body+home+workout", workout_upper: "https://www.youtube.com/results?search_query=upper+body+home+workout", workout_lower: "https://www.youtube.com/results?search_query=lower+body+home+workout", inbody_requested: false, health: "", food: "ما أحب السمك", created_at: ago(26), period_start: ago(26) },
       { id: "demo-noura", role: "client", name: "نورة خالد", email: "noura@demo.sa", phone: "0550000000", sex: "female", age: 31, height: 158, weight: 74, activity: 1.2, goal: "lose",
         kcal: 1250, bmr: 1390, package: "plus", paid: false, pay_status: "pending", receipt_path: "demo/receipt.svg", receipt_type: "image", receipt_sender: "Noura K.", receipt_amount: 250,
         receipt_date: new Date().toISOString(), plans: [], history: [], inbody_requested: true, health: "غدة درقية وآخذ دواء", created_at: ago(4) },

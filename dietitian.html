@@ -148,7 +148,9 @@
           </div>
           <div class="card" style="margin-top:12px" id="cd-workout-card">
             <h3 style="margin-top:0" data-i18n="wk_title"></h3>
-            <div class="field"><label for="cd-workout" data-i18n="ad_workout"></label><input id="cd-workout" type="url" dir="ltr" placeholder="https://..."></div>
+            <div class="field"><label for="cd-workout-upper" data-i18n="ad_wk_upper"></label><input id="cd-workout-upper" type="url" dir="ltr" placeholder="https://..."></div>
+            <div class="field" style="margin-top:8px"><label for="cd-workout-lower" data-i18n="ad_wk_lower"></label><input id="cd-workout-lower" type="url" dir="ltr" placeholder="https://..."></div>
+            <div class="field" style="margin-top:8px"><label for="cd-workout" data-i18n="ad_wk_full"></label><input id="cd-workout" type="url" dir="ltr" placeholder="https://..."></div>
             <div class="btn-row" style="justify-content:flex-start;margin-top:10px;align-items:center">
               <button class="btn small" id="cd-workout-save" data-i18n="ad_save"></button><span class="muted" id="cd-workout-msg"></span>
             </div>
@@ -158,7 +160,6 @@
             <p><span data-i18n="ib_last"></span>: <b id="cd-ib-last"></b> <span class="status-pill" id="cd-ib-pending" hidden data-i18n="ib_requested"></span></p>
             <div class="btn-row" style="justify-content:flex-start">
               <button class="btn" id="send-ib" data-i18n="ad_send_ib"></button>
-              <a class="btn wa" id="wa-client" href="#" target="_blank" rel="noopener" data-i18n="ad_wa_client"></a>
             </div>
             <h4 data-i18n="ib_history"></h4>
             <div class="table-wrap"><table id="cd-ib-table"></table></div>
