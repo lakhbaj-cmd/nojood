@@ -435,7 +435,7 @@ Object.assign(I18N.en, {
   ci_thanks: "Thanks! Your check-in was sent ✓", ci_now: "Log a check-in now", ci_err_weight: "Please enter your weight.", ci_err_rate: "Please choose how hard the week was (1–5).",
   pg_title: "📈 Your progress", pg_empty: "Your chart shows up after your first weekly check-in.", pg_summary: "From {a} kg to {b} kg ({d} kg)",
   gr_title: "Grocery list for the week", gr_sub: "Made from your 7 days, with the amounts added up. Tick items while you shop.",
-  gr_show: "Show my list", gr_hide: "Hide the list", gr_total: "Estimated cost:", gr_note: "Prices are rough estimates and can differ between stores.",
+  gr_show: "Show my list", gr_hide: "Hide the list", gr_total: "Estimated cost:", gr_need: "need", gr_note: "Prices are rough estimates and can differ between stores.",
   rn_title: "Your package ends in {d} days", rn_ended: "Your package has ended", rn_text: "End date: {date}. Renew to keep your plan going for another month.",
   rn_btn: "Renew", rn_sent: "Your renewal request was sent ✓ Your dietitian will confirm it."
 });
@@ -446,7 +446,7 @@ Object.assign(I18N.ar, {
   ci_thanks: "شكراً! وصل تشييكك ✓", ci_now: "سجّل تشييك الحين", ci_err_weight: "اكتب وزنك لو سمحت.", ci_err_rate: "اختر كيف كان الأسبوع (١–٥).",
   pg_title: "📈 تقدّمك", pg_empty: "الرسم يطلع بعد أول تشييك أسبوعي.", pg_summary: "من {a} كجم إلى {b} كجم ({d} كجم)",
   gr_title: "قائمة مشتريات الأسبوع", gr_sub: "مسوّية من أيامك السبعة والكميات مجموعة. علّم على الأغراض وأنت تتسوق.",
-  gr_show: "اعرض قائمتي", gr_hide: "اخفِ القائمة", gr_total: "التكلفة التقريبية:", gr_note: "الأسعار تقديرية وتختلف من محل لمحل.",
+  gr_show: "اعرض قائمتي", gr_hide: "اخفِ القائمة", gr_total: "التكلفة التقريبية:", gr_need: "تحتاج", gr_note: "الأسعار تقديرية وتختلف من محل لمحل.",
   rn_title: "باقتك تخلص بعد {d} أيام", rn_ended: "باقتك خلصت", rn_text: "تاريخ النهاية: {date}. جدّد عشان تكمل خطتك شهر ثاني.",
   rn_btn: "تجديد", rn_sent: "وصل طلب التجديد ✓ الأخصائية بتأكده."
 });

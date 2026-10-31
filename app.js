@@ -178,13 +178,18 @@ function buildGrocery(plans) {
       items.forEach(([key, qty]) => {
         const it = GROCERY_ITEMS[key]; if (!it) return;
         if (it.pantry || qty == null) { pantry.add(key); return; }
-        tot[key] = (tot[key] || 0) + qty * f;
+        // weights/volumes follow the client's portion size; whole items (eggs, slices, fruit) don't
+        tot[key] = (tot[key] || 0) + qty * (it.unit === "g" || it.unit === "ml" ? f : 1);
       });
     });
   });
   const rows = Object.keys(tot).map(key => {
     const it = GROCERY_ITEMS[key]; let q = tot[key];
-    if (it.unit === "g" || it.unit === "ml") q = Math.ceil(q / 50) * 50; else q = Math.ceil(q);
+    if (it.pack) {                       // sold in packs: buy whole packs
+      const packs = Math.max(1, Math.ceil(q / it.pack.size - 0.05));
+      return { key, it, qty: Math.round(q), packs, cost: packs * it.pack.price };
+    }
+    if (it.unit === "g" || it.unit === "ml") q = Math.max(100, Math.ceil(q / 100) * 100); else q = Math.ceil(q);
     return { key, it, qty: q, cost: q * it.price };
   });
   pantry.forEach(key => rows.push({ key, it: GROCERY_ITEMS[key], qty: null, cost: 0 }));
@@ -192,11 +197,21 @@ function buildGrocery(plans) {
 }
 function groceryQty(r) {
   const u = r.it.unit, ar = LANG === "ar", q = r.qty;
+  if (r.packs) {
+    const pk = r.it.pack, many = r.packs > 1;
+    return r.packs + " " + (ar ? (r.packs >= 3 && r.packs <= 10 ? pk.arN : pk.ar) : (many ? pk.enN : pk.en));
+  }
   if (u === "g") return q >= 1000 ? (q / 1000).toFixed(1).replace(/\.0$/, "") + (ar ? " كجم" : " kg") : q + (ar ? " جم" : " g");
   if (u === "ml") return q >= 1000 ? (q / 1000).toFixed(1).replace(/\.0$/, "") + (ar ? " لتر" : " L") : q + (ar ? " مل" : " ml");
   const few = q >= 3 && q <= 10;   // Arabic plural for 3-10
-  const names = { pc: ar ? (few ? "حبات" : "حبة") : "pcs", clove: ar ? (few ? "فصوص" : "فص") : "cloves", slice: ar ? (few ? "شرايح" : "شريحة") : "slices" };
+  const one = q === 1;
+  const names = { pc: ar ? (few ? "حبات" : "حبة") : (one ? "pc" : "pcs"), clove: ar ? (few ? "فصوص" : "فص") : (one ? "clove" : "cloves"), slice: ar ? (few ? "شرايح" : "شريحة") : (one ? "slice" : "slices") };
   return q + " " + names[u];
+}
+
+function groceryNeed(r) {           // how much the week needs, for items sold in packs
+  if (!r.packs) return "";
+  return groceryQty({ it: { unit: r.it.unit }, qty: r.it.unit === "g" || r.it.unit === "ml" ? Math.ceil(r.qty / 10) * 10 : r.qty });
 }
 
 // ===== Calories =====
@@ -443,7 +458,7 @@ if ($("login-form")) {
       const list = rows.filter(r => r.it.sec === sec.id); if (!list.length) return "";
       return '<h4 class="gr-sec">' + esc(ar ? sec.ar : sec.en) + '</h4><ul class="gr-items">' + list.map(r =>
         '<li class="' + (ticks[r.key] ? "done" : "") + '"><label><input type="checkbox" data-gr="' + esc(r.key) + '"' + (ticks[r.key] ? " checked" : "") + "> <span class='grow'>" + esc(ar ? r.it.ar : r.it.en) + "</span>" +
-        (r.qty != null ? "<b>" + esc(groceryQty(r)) + "</b><small class='muted'>~" + Math.max(1, Math.round(r.cost)) + " " + esc(t("sar")) + "</small>" : "") + "</label></li>").join("") + "</ul>";
+        (r.qty != null ? "<span class='gr-qty'><b>" + esc(groceryQty(r)) + "</b>" + (r.packs ? "<small class='muted'>" + esc(t("gr_need")) + " " + esc(groceryNeed(r)) + "</small>" : "") + "</span><small class='muted gr-price'>~" + Math.max(1, Math.round(r.cost)) + " " + esc(t("sar")) + "</small>" : "") + "</label></li>").join("") + "</ul>";
     }).join("") + '<p class="gr-total"><span>' + esc(t("gr_total")) + "</span> <b>~" + total + " " + esc(t("sar")) + '</b></p><p class="muted" style="font-size:.85rem">' + esc(t("gr_note")) + "</p>";
     $("gr-list").querySelectorAll("[data-gr]").forEach(cb => cb.addEventListener("change", () => {
       const tk = grTicks(c); tk[cb.dataset.gr] = cb.checked;

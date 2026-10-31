@@ -324,8 +324,11 @@ details p { margin: 6px 0 0; color: var(--text); }
 .gr-sec { margin: 16px 0 6px; color: var(--green); }
 .gr-items { list-style: none; margin: 0; padding: 0; }
 .gr-items li { border-bottom: 1px solid var(--line); }
-.gr-items label { display: flex; gap: 10px; align-items: center; padding: 9px 2px; cursor: pointer; }
-.gr-items .grow { flex: 1; }
-.gr-items small { min-width: 54px; text-align: end; }
+.gr-items label { display: flex; gap: 10px; align-items: center; padding: 9px 2px; cursor: pointer; font-weight: 500; }
+.gr-items input[type=checkbox] { width: 20px; height: 20px; min-width: 20px; flex: 0 0 20px; padding: 0; margin: 0; accent-color: var(--green); }
+.gr-items .grow { flex: 1; min-width: 0; text-align: start; }
+.gr-qty { display: flex; flex-direction: column; align-items: flex-end; text-align: end; white-space: nowrap; }
+.gr-qty small { font-size: .75rem; font-weight: 400; }
+.gr-price { min-width: 56px; text-align: end; white-space: nowrap; }
 .gr-items li.done span, .gr-items li.done b { text-decoration: line-through; color: var(--muted); }
 .gr-total { display: flex; justify-content: space-between; font-size: 1.1rem; margin: 14px 0 4px; }

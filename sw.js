@@ -1,6 +1,6 @@
 // Mizan service worker: makes the app open fast and work offline.
 // When you change any file, raise the version number so phones get the update.
-const VERSION = "nojood-v12";
+const VERSION = "nojood-v13";
 const FILES = [
   "./", "index.html", "start.html", "portal.html", "dietitian.html",
   "style.css", "i18n.js", "recipes.js", "grocery.js", "db.js", "demo-db.js", "app.js", "manifest.webmanifest", "manifest-dietitian.webmanifest",
