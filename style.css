@@ -308,3 +308,24 @@ details p { margin: 6px 0 0; color: var(--text); }
 .att-list li { display: flex; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 12px; background: var(--green-soft); }
 .att-list li.lvl-3 { background: var(--warn-bg); color: var(--warn-fg); }
 .att-list .grow { flex: 1; }
+
+/* Weekly check-in, progress chart, grocery list, renewal */
+.renew-card { border: 2px solid var(--accent); }
+.checkin-card { border: 2px solid var(--green-soft); }
+.rate-row { display: flex; gap: 8px; margin-top: 6px; }
+.rate-row button { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--input-line); background: var(--card); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.rate-row button.active { background: var(--green); color: var(--on-green); border-color: var(--green); }
+.wt-chart { width: 100%; max-width: 420px; height: auto; display: block; margin: 6px 0; direction: ltr; }
+.wt-chart .axis { stroke: var(--line); stroke-width: 1; }
+.wt-chart .ln { fill: none; stroke: var(--green); stroke-width: 2.5; stroke-linejoin: round; }
+.wt-chart .dot { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
+.wt-chart .val { font-size: 11px; fill: var(--text); font-weight: 700; }
+.wt-chart .lbl { font-size: 10px; fill: var(--muted); }
+.gr-sec { margin: 16px 0 6px; color: var(--green); }
+.gr-items { list-style: none; margin: 0; padding: 0; }
+.gr-items li { border-bottom: 1px solid var(--line); }
+.gr-items label { display: flex; gap: 10px; align-items: center; padding: 9px 2px; cursor: pointer; }
+.gr-items .grow { flex: 1; }
+.gr-items small { min-width: 54px; text-align: end; }
+.gr-items li.done span, .gr-items li.done b { text-decoration: line-through; color: var(--muted); }
+.gr-total { display: flex; justify-content: space-between; font-size: 1.1rem; margin: 14px 0 4px; }

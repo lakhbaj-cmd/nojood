@@ -65,6 +65,42 @@
       </div>
       <p class="note" id="ib-thanks" hidden data-i18n="ib_thanks"></p>
 
+      <!-- Renewal: shows 5 days before the package ends -->
+      <div class="card renew-card" id="renew-card" hidden style="margin-top:14px">
+        <h3 style="margin-top:0">🔔 <span id="renew-title"></span></h3>
+        <p id="renew-text" style="margin-top:0"></p>
+        <div id="renew-pay" hidden>
+          <p class="muted" style="margin:0 0 6px"><span data-i18n="pay_total"></span> <b id="renew-amount"></b> — IBAN <b dir="ltr" id="renew-iban"></b></p>
+          <div class="field"><label for="renew-receipt" data-i18n="tr_receipt"></label><input id="renew-receipt" type="file" accept="image/*,application/pdf"></div>
+        </div>
+        <p class="error" id="renew-err"></p>
+        <button class="btn" id="renew-btn" type="button" data-i18n="rn_btn"></button>
+        <p class="note" id="renew-sent" hidden data-i18n="rn_sent"></p>
+      </div>
+
+      <!-- Weekly check-in -->
+      <div class="card checkin-card" id="checkin-card" hidden style="margin-top:14px">
+        <h3 style="margin-top:0">📊 <span data-i18n="ci_title"></span></h3>
+        <p class="muted" style="margin-top:0" data-i18n="ci_sub"></p>
+        <div class="form-grid">
+          <div class="field"><label for="ci-weight" data-i18n="ci_weight"></label><input id="ci-weight" type="number" step="0.1" min="30" max="250"></div>
+          <div class="field"><label for="ci-waist" data-i18n="ci_waist"></label><input id="ci-waist" type="number" step="0.5" min="40" max="200"></div>
+          <div class="field full"><label for="ci-photo" data-i18n="ci_photo"></label><input id="ci-photo" type="file" accept="image/*"></div>
+          <div class="field full"><span class="label" style="font-weight:600" data-i18n="ci_rate"></span>
+            <div class="rate-row" id="ci-rate">
+              <button type="button" data-rate="1">1</button><button type="button" data-rate="2">2</button><button type="button" data-rate="3">3</button><button type="button" data-rate="4">4</button><button type="button" data-rate="5">5</button>
+            </div>
+            <p class="muted" style="font-size:.85rem;margin:4px 0 0" data-i18n="ci_rate_hint"></p>
+          </div>
+        </div>
+        <p class="error" id="ci-err"></p>
+        <div class="btn-row" style="justify-content:flex-start">
+          <button class="btn" id="ci-submit" type="button" data-i18n="ci_submit"></button>
+          <button class="btn outline" id="ci-later" type="button" data-i18n="ci_later"></button>
+        </div>
+      </div>
+      <p class="note" id="ci-thanks" hidden data-i18n="ci_thanks"></p>
+
       <!-- A: waiting for the dietitian to confirm the bank transfer -->
       <div class="card" id="v-wait" hidden style="margin-top:14px">
         <div id="wait-pending">
@@ -178,6 +214,22 @@
         </div>
       </div>
 
+      <!-- Progress chart -->
+      <div class="card" id="progress-card" hidden style="margin-top:14px">
+        <h3 style="margin-top:0" data-i18n="pg_title"></h3>
+        <div id="pg-chart"></div>
+        <p class="muted" id="pg-summary" style="margin-bottom:0"></p>
+        <button class="link-btn" id="ci-open" type="button" data-i18n="ci_now"></button>
+      </div>
+
+      <!-- Auto grocery list -->
+      <div class="card" id="grocery-card" hidden style="margin-top:14px">
+        <h3 style="margin-top:0">🛒 <span data-i18n="gr_title"></span></h3>
+        <p class="muted" style="margin-top:0" data-i18n="gr_sub"></p>
+        <button class="btn outline" id="gr-toggle" type="button" data-i18n="gr_show"></button>
+        <div id="gr-list" hidden></div>
+      </div>
+
       <!-- Workout link from the dietitian -->
       <div class="card" style="margin-top:14px" id="workout-card" hidden>
         <h3 style="margin-top:0" data-i18n="wk_title"></h3>
@@ -193,6 +245,7 @@
 
   <script src="i18n.js"></script>
   <script src="recipes.js"></script>
+  <script src="grocery.js"></script>
   <script src="db.js"></script>
   <script src="demo-db.js"></script>
   <script src="app.js"></script>

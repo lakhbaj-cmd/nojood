@@ -1,12 +1,12 @@
 // Mizan Nutrition — site logic (connected to the Supabase database via db.js)
 // ===== Settings: change these =====
-const WHATSAPP_NUMBER = "";   // your sister's WhatsApp, country code, no + or spaces, e.g. "9665XXXXXXXX"
+const WHATSAPP_NUMBER = "966545220200";   // your sister's WhatsApp, country code, no + or spaces, e.g. "9665XXXXXXXX"
 // Bank transfer details shown to clients on the payment step
-const BANK_NAME = "[اسم البنك]";
-const ACCOUNT_NAME = "[اسم صاحبة الحساب]";
-const IBAN = "SA00 0000 0000 0000 0000 0000";
+const BANK_NAME = "bank name";
+const ACCOUNT_NAME = "account name";
+const IBAN = "IBAN";
 // Payment switch: false = clients sign up without paying (for testing). Set to true to turn bank-transfer payment back on.
-const PAYMENT_ENABLED = false;
+const PAYMENT_ENABLED = true;
 const isPaid = c => !!c && (c.paid || !PAYMENT_ENABLED);
 const MATCH_RANGE = 150;      // a schedule "matches" a client if its calories are within ± this many kcal
 const PACKAGES = {
@@ -131,6 +131,72 @@ function dayState(c) {
   const handled = slots.filter(s => s.status).length;
   const kcal = slots.filter(s => s.status === "done").reduce((sum, s) => sum + Math.round((s.recipe ? s.recipe.kcal : 0) * factor), 0);
   return { today, plan, factor, slots, next, done, handled, kcal };
+}
+
+// ===== Package period (1 month) =====
+const PACKAGE_DAYS = 30, RENEW_NOTICE_DAYS = 5;
+const DAY_MS = 864e5;
+function periodStart(c) { return new Date(c.period_start || c.created_at || Date.now()); }
+function periodEnd(c) { return new Date(periodStart(c).getTime() + PACKAGE_DAYS * DAY_MS); }
+function daysLeft(c) { return Math.ceil((periodEnd(c).getTime() - Date.now()) / DAY_MS); }
+const daysAgo = d => d ? Math.floor((Date.now() - new Date(d).getTime()) / DAY_MS) : 0;
+
+// ===== Weekly check-in helpers =====
+function lastCheckin(list) { return list && list.length ? list[list.length - 1] : null; }
+function checkinDue(c, list) { const last = lastCheckin(list); return daysAgo(last ? last.date : periodStart(c)) >= 7; }
+function gainedTwoWeeks(list) {           // weight went up at two check-ins in a row
+  const w = (list || []).filter(x => x.weight).map(x => +x.weight);
+  if (w.length < 3) return 0;
+  const [a, b, c] = w.slice(-3);
+  return b > a && c > b ? Math.round((c - a) * 10) / 10 : 0;
+}
+// small line chart of weight over time (start weight + every check-in)
+function weightChartSVG(c, list) {
+  const pts = [{ date: c.created_at, weight: +c.weight }].concat((list || []).filter(x => x.weight).map(x => ({ date: x.date, weight: +x.weight }))).filter(p => p.weight);
+  if (pts.length < 2) return "";
+  const W = 320, H = 150, pad = 28;
+  const ws = pts.map(p => p.weight), min = Math.min(...ws) - 0.5, max = Math.max(...ws) + 0.5;
+  const x = i => pad + (i * (W - pad * 2)) / (pts.length - 1), y = v => H - pad - ((v - min) / (max - min)) * (H - pad * 2);
+  const line = pts.map((p, i) => x(i).toFixed(1) + "," + y(p.weight).toFixed(1)).join(" ");
+  const fmt = d => new Date(d).toLocaleDateString(LANG === "ar" ? "ar-SA-u-ca-gregory-nu-latn" : "en-GB", { day: "numeric", month: "short" });
+  return '<svg class="wt-chart" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(t("pg_title")) + '" direction="ltr">' +
+    '<line x1="' + pad + '" y1="' + (H - pad) + '" x2="' + (W - pad) + '" y2="' + (H - pad) + '" class="axis"/>' +
+    '<polyline points="' + line + '" class="ln"/>' +
+    pts.map((p, i) => '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(p.weight).toFixed(1) + '" r="4" class="dot"/>' +
+      '<text x="' + x(i).toFixed(1) + '" y="' + (y(p.weight) - 9).toFixed(1) + '" class="val" text-anchor="middle">' + p.weight + "</text>").join("") +
+    '<text x="' + pad + '" y="' + (H - 8) + '" class="lbl" text-anchor="start">' + esc(fmt(pts[0].date)) + "</text>" +
+    '<text x="' + (W - pad) + '" y="' + (H - 8) + '" class="lbl" text-anchor="end">' + esc(fmt(pts[pts.length - 1].date)) + "</text></svg>";
+}
+
+// ===== Auto grocery list from the client's 7 days =====
+function buildGrocery(plans) {
+  const tot = {}, pantry = new Set();
+  (plans || []).slice(0, 7).forEach(p => {
+    const f = portionFactor(p.kcal, p.meals);
+    SLOTS.forEach(k => {
+      const id = p.meals[k], items = (typeof RECIPE_ITEMS !== "undefined" && RECIPE_ITEMS[id]) || [];
+      items.forEach(([key, qty]) => {
+        const it = GROCERY_ITEMS[key]; if (!it) return;
+        if (it.pantry || qty == null) { pantry.add(key); return; }
+        tot[key] = (tot[key] || 0) + qty * f;
+      });
+    });
+  });
+  const rows = Object.keys(tot).map(key => {
+    const it = GROCERY_ITEMS[key]; let q = tot[key];
+    if (it.unit === "g" || it.unit === "ml") q = Math.ceil(q / 50) * 50; else q = Math.ceil(q);
+    return { key, it, qty: q, cost: q * it.price };
+  });
+  pantry.forEach(key => rows.push({ key, it: GROCERY_ITEMS[key], qty: null, cost: 0 }));
+  return { rows, total: Math.round(rows.reduce((a, r) => a + r.cost, 0)) };
+}
+function groceryQty(r) {
+  const u = r.it.unit, ar = LANG === "ar", q = r.qty;
+  if (u === "g") return q >= 1000 ? (q / 1000).toFixed(1).replace(/\.0$/, "") + (ar ? " كجم" : " kg") : q + (ar ? " جم" : " g");
+  if (u === "ml") return q >= 1000 ? (q / 1000).toFixed(1).replace(/\.0$/, "") + (ar ? " لتر" : " L") : q + (ar ? " مل" : " ml");
+  const few = q >= 3 && q <= 10;   // Arabic plural for 3-10
+  const names = { pc: ar ? (few ? "حبات" : "حبة") : "pcs", clove: ar ? (few ? "فصوص" : "فص") : "cloves", slice: ar ? (few ? "شرايح" : "شريحة") : "slices" };
+  return q + " " + names[u];
 }
 
 // ===== Calories =====
@@ -292,7 +358,7 @@ if ($("login-form")) {
       const rows = await DB.select("profiles", "select=*&id=eq." + u.id);
       me = rows[0] || null;
       if (me && me.role === "admin") { await DB.signOut(); me = null; $("loading").hidden = true; $("login-err").textContent = t("pt_is_pro"); return render(); }
-      await Promise.all([loadSchedules(), loadRecipes()]);
+      await Promise.all([loadSchedules(), loadRecipes(), loadCheckins()]);
       loadDraft();
     } catch (e) { me = null; $("login-err").textContent = friendlyError(e); }
     $("loading").hidden = true;
@@ -327,7 +393,115 @@ if ($("login-form")) {
     if (!$("v-build").hidden) renderBuild(c);
     if (!$("v-pick").hidden) renderPick(c);
     if (st) renderToday(c, st);
+    renderExtras(c);
   }
+  // ---------- Weekly check-in, progress chart, grocery list, renewal ----------
+  let CHECKINS = [], ciRate = 0, ciForced = false, grOpen = false;
+  async function loadCheckins() {
+    if (!me) { CHECKINS = []; return; }
+    try { CHECKINS = await DB.select("checkins", "select=*&user_id=eq." + me.id + "&order=date.asc"); } catch (e) { CHECKINS = []; }
+  }
+  function renderExtras(c) {
+    const paid = isPaid(c), active = paid && !!c.kcal;
+    // renewal
+    const left = daysLeft(c), showRenew = active && left <= RENEW_NOTICE_DAYS;
+    $("renew-card").hidden = !showRenew;
+    if (showRenew) {
+      $("renew-title").textContent = left > 0 ? t("rn_title").replace("{d}", left) : t("rn_ended");
+      $("renew-text").textContent = t("rn_text").replace("{date}", fmtDate(periodEnd(c).toISOString()));
+      const sent = !!c.renew_requested_at;
+      $("renew-sent").hidden = !sent; $("renew-btn").hidden = sent;
+      $("renew-pay").hidden = sent || !PAYMENT_ENABLED;
+      if (PAYMENT_ENABLED && PACKAGES[c.package]) { $("renew-amount").textContent = PACKAGES[c.package].price + " " + t("sar"); $("renew-iban").textContent = IBAN; }
+    }
+    // weekly check-in
+    const due = active && (ciForced || checkinDue(c, CHECKINS));
+    $("checkin-card").hidden = !due;
+    $("ci-later").hidden = !ciForced;
+    // progress chart
+    const chart = weightChartSVG(c, CHECKINS);
+    $("progress-card").hidden = !active;
+    $("pg-chart").innerHTML = chart || '<p class="muted">' + esc(t("pg_empty")) + "</p>";
+    const last = lastCheckin(CHECKINS);
+    $("pg-summary").textContent = last && last.weight ? t("pg_summary").replace("{a}", c.weight).replace("{b}", last.weight).replace("{d}", (Math.round((last.weight - c.weight) * 10) / 10 > 0 ? "+" : "") + Math.round((last.weight - c.weight) * 10) / 10) : "";
+    $("ci-open").hidden = due;
+    // grocery list
+    const hasWeek = active && (c.plans || []).length >= 7;
+    $("grocery-card").hidden = !hasWeek;
+    if (hasWeek && grOpen) renderGrocery(c);
+    $("gr-list").hidden = !grOpen;
+    $("gr-toggle").textContent = t(grOpen ? "gr_hide" : "gr_show");
+  }
+
+  // grocery list (ticks are remembered on this phone)
+  const grKey = c => { const str = (c.plans || []).map(p => SLOTS.map(k => p.meals[k]).join(",")).join("|"); let h = 0; for (const ch of str) h = (h * 31 + ch.charCodeAt(0)) | 0; return "nojood_grocery_" + c.id + "_" + h; };
+  function grTicks(c) { try { return JSON.parse(localStorage.getItem(grKey(c)) || "{}"); } catch (e) { return {}; } }
+  function renderGrocery(c) {
+    const { rows, total } = buildGrocery(c.plans), ticks = grTicks(c);
+    const ar = LANG === "ar";
+    $("gr-list").innerHTML = GROCERY_SECTIONS.map(sec => {
+      const list = rows.filter(r => r.it.sec === sec.id); if (!list.length) return "";
+      return '<h4 class="gr-sec">' + esc(ar ? sec.ar : sec.en) + '</h4><ul class="gr-items">' + list.map(r =>
+        '<li class="' + (ticks[r.key] ? "done" : "") + '"><label><input type="checkbox" data-gr="' + esc(r.key) + '"' + (ticks[r.key] ? " checked" : "") + "> <span class='grow'>" + esc(ar ? r.it.ar : r.it.en) + "</span>" +
+        (r.qty != null ? "<b>" + esc(groceryQty(r)) + "</b><small class='muted'>~" + Math.max(1, Math.round(r.cost)) + " " + esc(t("sar")) + "</small>" : "") + "</label></li>").join("") + "</ul>";
+    }).join("") + '<p class="gr-total"><span>' + esc(t("gr_total")) + "</span> <b>~" + total + " " + esc(t("sar")) + '</b></p><p class="muted" style="font-size:.85rem">' + esc(t("gr_note")) + "</p>";
+    $("gr-list").querySelectorAll("[data-gr]").forEach(cb => cb.addEventListener("change", () => {
+      const tk = grTicks(c); tk[cb.dataset.gr] = cb.checked;
+      try { localStorage.setItem(grKey(c), JSON.stringify(tk)); } catch (e) {}
+      cb.closest("li").classList.toggle("done", cb.checked);
+    }));
+  }
+  $("gr-toggle").addEventListener("click", () => { grOpen = !grOpen; renderExtras(me); });
+
+  // check-in form
+  $("ci-rate").addEventListener("click", e => {
+    const b = e.target.closest("[data-rate]"); if (!b) return;
+    ciRate = +b.dataset.rate;
+    $("ci-rate").querySelectorAll("[data-rate]").forEach(x => x.classList.toggle("active", +x.dataset.rate === ciRate));
+  });
+  $("ci-open").addEventListener("click", () => { ciForced = true; $("ci-thanks").hidden = true; renderExtras(me); $("checkin-card").scrollIntoView({ behavior: "smooth", block: "center" }); });
+  $("ci-later").addEventListener("click", () => { ciForced = false; renderExtras(me); });
+  $("ci-submit").addEventListener("click", async () => {
+    const weight = parseFloat($("ci-weight").value), waist = parseFloat($("ci-waist").value);
+    if (!weight || weight < 30 || weight > 250) { $("ci-err").textContent = t("ci_err_weight"); return; }
+    if (!ciRate) { $("ci-err").textContent = t("ci_err_rate"); return; }
+    $("ci-err").textContent = "";
+    busy($("ci-submit"), true);
+    try {
+      let photo_path = null;
+      const file = $("ci-photo").files[0];
+      if (file) {
+        const ph = await readReceipt(file);
+        photo_path = me.id + "/checkin-" + Date.now() + "." + ph.ext;
+        await DB.upload("receipts", photo_path, ph.blob);
+      }
+      await DB.insert("checkins", { user_id: me.id, weight, waist: isNaN(waist) ? null : waist, rating: ciRate, photo_path });
+      await loadCheckins();
+      ciForced = false; ciRate = 0;
+      ["ci-weight", "ci-waist", "ci-photo"].forEach(id => { $(id).value = ""; });
+      $("ci-rate").querySelectorAll("[data-rate]").forEach(x => x.classList.remove("active"));
+      $("ci-thanks").hidden = false;
+      render();
+    } catch (e) { $("ci-err").textContent = e === "big" ? t("err_receipt_big") : friendlyError(e); }
+    finally { busy($("ci-submit"), false); }
+  });
+
+  // renewal
+  $("renew-btn").addEventListener("click", async () => {
+    const changes = { renew_requested_at: new Date().toISOString() };
+    busy($("renew-btn"), true); $("renew-err").textContent = "";
+    try {
+      if (PAYMENT_ENABLED) {
+        let r;
+        try { r = await readReceipt($("renew-receipt").files[0]); } catch (e) { $("renew-err").textContent = t(e === "big" ? "err_receipt_big" : "err_receipt"); return; }
+        const path = await uploadReceipt(me.id, r);
+        Object.assign(changes, { receipt_path: path, receipt_type: r.type, receipt_date: new Date().toISOString(), receipt_amount: PACKAGES[me.package] ? PACKAGES[me.package].price : null, pay_status: "pending" });
+      }
+      await updateMe(changes);
+    } catch (e) { $("renew-err").textContent = friendlyError(e); }
+    finally { busy($("renew-btn"), false); }
+  });
+
 
   function renderWorkout(c) {
     const link = c.workout_link && /^https?:\/\//i.test(c.workout_link) ? c.workout_link : "";
@@ -687,7 +861,7 @@ if ($("admin-login")) {
     $("loading").hidden = true;
     renderAll();
   }
-  async function loadClients() { CLIENTS = await DB.select("profiles", "select=*&role=eq.client&order=created_at.desc"); }
+  async function loadClients() { CLIENTS = await DB.select("profiles", "select=*&role=eq.client&order=created_at.desc"); if (typeof loadAllCheckins === "function") await loadAllCheckins(); }
 
   $("toggle-signup").addEventListener("click", () => {
     signupMode = !signupMode;
@@ -843,6 +1017,7 @@ if ($("admin-login")) {
     if (!c) { openClient = null; return renderClients(); }
     $("cd-name").textContent = c.name;
     if (typeof renderSuggest === "function") renderSuggest();
+    if (typeof renderProExtras === "function") { rnArmed = false; renderProExtras(c); }
     const rows = [
       [t("f_phone"), c.phone], [t("f_email"), c.email], [t("f_age"), c.age], [t("f_height"), c.height], [t("f_weight"), c.weight],
       [t("f_goal"), c.goal ? t("goal_" + c.goal) : "—"], [t("ad_c_target"), (c.kcal || "—") + " " + t("kcal_short")],
@@ -1113,6 +1288,7 @@ if ($("admin-login")) {
     const items = [];
     CLIENTS.forEach(c => {
       const add = (level, text) => items.push({ c, level, text });
+      extraAttention(c, add);
       if (!isPaid(c)) { if (c.pay_status === "pending" && c.receipt_path) add(2, ag("att_pay")); return; }
       if (!c.kcal) { const d = daysSince(c.created_at); add(d >= 2 ? 3 : 2, ag("att_kcal", { d })); if (healthFlag(c)) add(3, ag("att_health")); return; }
       if ((c.plans || []).length < 7) { const d = daysSince(c.created_at); if (d >= 3) add(2, ag("att_days", { d })); return; }
@@ -1135,6 +1311,65 @@ if ($("admin-login")) {
   }
   document.addEventListener("langchange", () => { sgLabels(); renderSuggest(); });
   window.__agent = { suggestKcal, suggestPlans, attentionList, healthFlag, dislikeWords };   // used by the test file
+
+
+  // ---------- Pro: weekly check-ins + renewals ----------
+  let CHECKINS_BY = {};
+  async function loadAllCheckins() {
+    CHECKINS_BY = {};
+    try { (await DB.select("checkins", "select=*&order=date.asc")).forEach(x => { (CHECKINS_BY[x.user_id] = CHECKINS_BY[x.user_id] || []).push(x); }); } catch (e) {}
+  }
+  const PX = {
+    ar: { ci_card: "📊 التشييك الأسبوعي", ci_none: "لسا ما سجل أي تشييك.", ci_date: "التاريخ", ci_w: "الوزن", ci_waist: "الخصر", ci_rate: "صعوبة الأسبوع", ci_photo: "صورة", ci_view: "عرض",
+      rn_card: "🔁 الباقة والتجديد", rn_period: "الباقة من {a} إلى {b}", rn_left: "باقي {d} أيام", rn_over: "خلصت من {d} أيام", rn_req: "✋ طلب التجديد يوم {date}", rn_confirm: "أكدي التجديد (شهر جديد)", rn_sure: "متأكدة؟ بيبدأ شهر جديد ويختار أيامه السبعة من جديد", rn_done: "✓ تجدد — بدأ شهر جديد",
+      att_ci_missed: "ما سجل التشييك الأسبوعي من {d} أيام", att_ci_gain: "وزنه زاد أسبوعين ورا بعض (+{w} كجم)", att_rn_req: "طلب تجديد الباقة", att_rn_soon: "باقته تخلص بعد {d} أيام", att_rn_over: "باقته خلصت وما جدد" },
+    en: { ci_card: "📊 Weekly check-in", ci_none: "No check-ins yet.", ci_date: "Date", ci_w: "Weight", ci_waist: "Waist", ci_rate: "How hard", ci_photo: "Photo", ci_view: "View",
+      rn_card: "🔁 Package & renewal", rn_period: "Package from {a} to {b}", rn_left: "{d} days left", rn_over: "Ended {d} days ago", rn_req: "✋ Asked to renew on {date}", rn_confirm: "Confirm renewal (new month)", rn_sure: "Sure? A new month starts and they choose 7 new days", rn_done: "✓ Renewed — new month started",
+      att_ci_missed: "Missed the weekly check-in ({d} days)", att_ci_gain: "Gained weight 2 weeks in a row (+{w} kg)", att_rn_req: "Asked to renew the package", att_rn_soon: "Package ends in {d} days", att_rn_over: "Package ended, not renewed" }
+  };
+  const px = (k, v) => { let s = (PX[LANG] || PX.en)[k] || PX.en[k]; for (const x in (v || {})) s = s.split("{" + x + "}").join(v[x]); return s; };
+
+  // extra attention items (used by the "need your attention" list)
+  function extraAttention(c, add) {
+    if (!isPaid(c)) return;
+    if (c.renew_requested_at) add(3, px("att_rn_req"));
+    else if (c.kcal) { const l = daysLeft(c); if (l <= 0) add(3, px("att_rn_over")); else if (l <= RENEW_NOTICE_DAYS) add(1, px("att_rn_soon", { d: l })); }
+    if (!c.kcal) return;
+    const list = CHECKINS_BY[c.id] || [], last = lastCheckin(list), since = daysAgo(last ? last.date : periodStart(c));
+    if (since >= 8) add(2, px("att_ci_missed", { d: since }));
+    const g = gainedTwoWeeks(list); if (g) add(3, px("att_ci_gain", { w: g }));
+  }
+
+  // cards in the client's page
+  const ciCard = document.createElement("div"); ciCard.className = "card"; ciCard.style.marginTop = "12px"; ciCard.id = "cd-checkins";
+  const rnCard = document.createElement("div"); rnCard.className = "card"; rnCard.style.marginTop = "12px"; rnCard.id = "cd-renew";
+  $("agent-card").after(rnCard); rnCard.after(ciCard);
+  let rnArmed = false;
+  async function renderProExtras(c) {
+    // renewal
+    const l = daysLeft(c);
+    rnCard.innerHTML = "<h3 style='margin-top:0'>" + esc(px("rn_card")) + "</h3><p style='margin-top:0'>" + esc(px("rn_period", { a: fmtDate(periodStart(c).toISOString()), b: fmtDate(periodEnd(c).toISOString()) })) + " · <b>" + esc(l > 0 ? px("rn_left", { d: l }) : px("rn_over", { d: -l })) + "</b></p>" +
+      (c.renew_requested_at ? "<p class='sg-flag'>" + esc(px("rn_req", { date: fmtDate(c.renew_requested_at) })) + "</p>" : "") +
+      "<button class='btn" + (c.renew_requested_at ? "" : " outline") + "' id='rn-confirm' type='button'>" + esc(rnArmed ? px("rn_sure") : px("rn_confirm")) + "</button><p class='muted' id='rn-msg'></p>";
+    $("rn-confirm").addEventListener("click", async () => {
+      if (!rnArmed) { rnArmed = true; return renderProExtras(c); }
+      rnArmed = false;
+      const ch = { period_start: new Date().toISOString(), renew_requested_at: null, plans: [], today: null };
+      if (PAYMENT_ENABLED) Object.assign(ch, { paid: true, pay_status: "confirmed" });
+      await changeClient(ch);
+      $("rn-msg").textContent = px("rn_done");
+    });
+    // check-ins
+    const list = CHECKINS_BY[c.id] || [];
+    const urls = {};
+    for (const x of list) if (x.photo_path) { try { urls[x.id] = await DB.signedUrl("receipts", x.photo_path, 3600); } catch (e) {} }
+    if (openClient !== c.id) return;
+    ciCard.innerHTML = "<h3 style='margin-top:0'>" + esc(px("ci_card")) + "</h3>" + (weightChartSVG(c, list) || "") +
+      (list.length ? "<div class='table-wrap'><table><tr><th>" + [px("ci_date"), px("ci_w"), px("ci_waist"), px("ci_rate"), px("ci_photo")].map(esc).join("</th><th>") + "</th></tr>" +
+        list.slice().reverse().map(x => "<tr><td>" + esc(fmtDate(x.date)) + "</td><td>" + (x.weight ?? "—") + "</td><td>" + (x.waist ?? "—") + "</td><td>" + (x.rating ? x.rating + " / 5" : "—") + "</td><td>" +
+          (urls[x.id] ? '<a href="' + esc(urls[x.id]) + '" target="_blank" rel="noopener">' + esc(px("ci_view")) + "</a>" : "—") + "</td></tr>").join("") + "</table></div>"
+        : "<p class='muted'>" + esc(px("ci_none")) + "</p>");
+  }
 
   function renderAll() { renderSchedules(); renderRecipes(); renderClients(); renderDayEditor(); updateBadge(); }
   document.addEventListener("langchange", () => { if (!$("admin-view").hidden) renderAll(); });
