@@ -2,9 +2,9 @@
 // ===== Settings: change these =====
 const WHATSAPP_NUMBER = "966545220200";   // your sister's WhatsApp, country code, no + or spaces, e.g. "9665XXXXXXXX"
 // Bank transfer details shown to clients on the payment step
-const BANK_NAME = "bank name";
-const ACCOUNT_NAME = "account name";
-const IBAN = "IBAN";
+const BANK_NAME = "البنك الأهلي السعودي (SNB)";
+const ACCOUNT_NAME = "";   // leave empty to hide the account-holder line
+const IBAN = "SA14 1000 0011 3000 0007 8110";
 // Payment switch: false = clients sign up without paying (for testing). Set to true to turn bank-transfer payment back on.
 const PAYMENT_ENABLED = true;
 const isPaid = c => !!c && (c.paid || !PAYMENT_ENABLED);
@@ -133,6 +133,17 @@ function dayState(c) {
   return { today, plan, factor, slots, next, done, handled, kcal };
 }
 
+// A custom day may be up to this many kcal above or below the client's target
+const DAY_RANGE = 50;
+// 5 workout days: [{ link, note }] — old single link becomes day 1
+function workoutDays(c) {
+  const ok = v => v && /^https?:\/\//i.test(v) ? v : "";
+  let d = Array.isArray(c.workout_days) ? c.workout_days.slice(0, 5) : [];
+  if (!d.length && (c.workout_upper || c.workout_lower || c.workout_link)) d = [c.workout_upper, c.workout_lower, c.workout_link].filter(Boolean).map(l => ({ link: l, note: "" }));
+  while (d.length < 5) d.push({ link: "", note: "" });
+  return d.map(x => ({ link: ok(x && x.link), note: (x && x.note) || "" }));
+}
+
 // ===== Package period (1 month) =====
 const PACKAGE_DAYS = 30, RENEW_NOTICE_DAYS = 5;
 const DAY_MS = 864e5;
@@ -247,7 +258,7 @@ if ($("info-form")) {
     $("ib-fields").hidden = document.querySelector("input[name=ibmode]:checked").value !== "with";
   }));
   const params = new URLSearchParams(location.search);
-  let chosen = PACKAGES[params.get("package")] ? params.get("package") : "plus";
+  let chosen = "plus";   // only one package is on sale now
 
   function show(n) {
     current = n;
@@ -286,6 +297,7 @@ if ($("info-form")) {
   // Bank transfer step
   $("bank-name").textContent = BANK_NAME;
   $("bank-holder").textContent = ACCOUNT_NAME;
+  $("bank-holder").closest(".bank-row").hidden = !ACCOUNT_NAME;
   $("bank-iban").textContent = IBAN;
   $("copy-iban").addEventListener("click", () => copyText(IBAN.replace(/\s/g, ""), $("copy-iban")));
   $("copy-amount").addEventListener("click", () => copyText(String(PACKAGES[chosen].price), $("copy-amount")));
@@ -392,16 +404,19 @@ if ($("login-form")) {
     $("ib-alert").hidden = !c.inbody_requested;
     const plans = c.plans || [];
     const paid = isPaid(c);
-    const st = paid && plans.length >= 7 ? dayState(c) : null;
+    const approved = !!c.plans_approved;   // Nojood approves the 7 days before the client sees them
+    const st = paid && plans.length >= 7 && approved ? dayState(c) : null;
     $("v-wait").hidden = paid;
     $("wait-rejected").hidden = c.pay_status !== "rejected";
     $("wait-pending").hidden = c.pay_status === "rejected";
     const noKcal = paid && !c.kcal;
     $("v-kcal-wait").hidden = !noKcal;
     $("v-build").hidden = !(paid && c.kcal && plans.length < 7);
-    const off = paid && plans.length >= 7 && isOffToday(c);
+    const off = paid && plans.length >= 7 && approved && isOffToday(c);
+    $("v-plans-wait").hidden = !(paid && plans.length >= 7 && !approved);
+    if (!$("v-plans-wait").hidden) $("ap-days").innerHTML = plans.slice(0, 7).map((p, i) => '<li><span class="day-num">' + (i + 1) + "</span><span class='grow'><b>" + esc(planTitle(p)) + "</b><br><small class='muted'>" + SLOTS.map(k => { const r = recipeById(p.meals[k]); return r ? esc(rText(r, "name")) : ""; }).filter(Boolean).join(" · ") + "</small></span></li>").join("");
     $("v-off").hidden = !off;
-    $("v-pick").hidden = !(paid && plans.length >= 7 && !st && !off);
+    $("v-pick").hidden = !(paid && plans.length >= 7 && approved && !st && !off);
     $("v-plan").hidden = !(paid && st);
     $("workout-card").hidden = !(paid && PACKAGES[c.package] && PACKAGES[c.package].workout);
     renderWorkout(c);
@@ -441,7 +456,7 @@ if ($("login-form")) {
     $("pg-summary").textContent = last && last.weight ? t("pg_summary").replace("{a}", c.weight).replace("{b}", last.weight).replace("{d}", (Math.round((last.weight - c.weight) * 10) / 10 > 0 ? "+" : "") + Math.round((last.weight - c.weight) * 10) / 10) : "";
     $("ci-open").hidden = due;
     // grocery list
-    const hasWeek = active && (c.plans || []).length >= 7;
+    const hasWeek = active && (c.plans || []).length >= 7 && !!c.plans_approved;
     $("grocery-card").hidden = !hasWeek;
     if (hasWeek && grOpen) renderGrocery(c);
     $("gr-list").hidden = !grOpen;
@@ -519,24 +534,23 @@ if ($("login-form")) {
 
 
   function renderWorkout(c) {
-    // 3 workout links: upper body, lower body, full body
-    const ok = v => v && /^https?:\/\//i.test(v) ? v : "";
-    const links = { "wk-upper": ok(c.workout_upper), "wk-lower": ok(c.workout_lower), "wk-link": ok(c.workout_link) };
-    Object.entries(links).forEach(([id, url]) => { $(id).hidden = !url; if (url) $(id).href = url; });
-    $("wk-none").hidden = Object.values(links).some(Boolean);
+    // 5 workout days, each with a link and a note from Nojood
+    const days = workoutDays(c);
+    $("wk-days").innerHTML = days.map((d, i) => (d.link || d.note) ? '<div class="wk-day"><div class="wk-day-head"><b>' + esc(t("wk_day")) + " " + (i + 1) + "</b>" +
+      (d.link ? '<a class="btn small" href="' + esc(d.link) + '" target="_blank" rel="noopener">' + esc(t("wk_open_day")) + "</a>" : "") + "</div>" +
+      (d.note ? '<p class="wk-note">📝 ' + esc(d.note) + "</p>" : "") + "</div>" : "").join("");
+    $("wk-none").hidden = days.some(d => d.link || d.note);
   }
 
   // ---------- Step 1: choose 7 days ----------
   function renderBuild(c) {
     // only the plus package can build its own days; basic chooses from the ready plans
-    const canCustom = !!(PACKAGES[c.package] && PACKAGES[c.package].custom);
-    if (!canCustom) tab = "ready";
-    document.querySelector('[data-btab="custom"]').hidden = !canCustom;
+    tab = "custom";   // clients build their own days; ready plans are not shown to clients
     $("b-count").textContent = draft.length;
     $("b-kcal").textContent = (c.kcal || 0).toLocaleString();
     document.querySelectorAll("[data-btab]").forEach(b => b.classList.toggle("active", b.dataset.btab === tab));
-    $("b-ready").hidden = tab !== "ready";
-    $("b-custom").hidden = tab !== "custom";
+    $("b-ready").hidden = true;
+    $("b-custom").hidden = false;
     const full = draft.length >= 7;
 
     // ready plans that match the client's calories — food names only
@@ -579,25 +593,30 @@ if ($("login-form")) {
       const others = SLOTS.filter(x => x !== k);
       const othersChosen = others.reduce((s, x) => s + ((recipeById(custom[x]) || {}).kcal || 0), 0);
       const othersMin = others.filter(x => !custom[x]).reduce((s, x) => s + (isFinite(minOf(x)) ? minOf(x) : 0), 0);
-      const fits = recipesFor(k).filter(r => r.kcal + othersChosen + othersMin <= target + 50);
+      const fits = recipesFor(k).filter(r => r.kcal + othersChosen + othersMin <= target + DAY_RANGE);
       const opts = fits.map(r => '<option value="' + esc(r.id) + '"' + (custom[k] === r.id ? " selected" : "") + ">" + esc(rText(r, "name")) + " (" + r.kcal + ")</option>").join("");
       return '<div class="field"><label for="cs-' + k + '">' + esc(slotLabel(k)) + '</label><select id="cs-' + k + '" data-cslot="' + k + '"><option value="">' + esc(fits.length ? t("b_choose") : t("b_nothing_fits")) + "</option>" + opts + "</select></div>";
     }).join("");
     document.querySelectorAll("[data-cslot]").forEach(s => s.addEventListener("change", () => { custom[s.dataset.cslot] = s.value; renderCustom(c); }));
     const complete = SLOTS.every(k => custom[k]);
-    $("c-add").disabled = !complete || draft.length >= 7;
+    const diff = chosenSum - target, inRange = Math.abs(diff) <= DAY_RANGE;
+    $("c-range").textContent = !complete ? "" : inRange ? t("b_range_ok") : diff > 0 ? t("b_range_more").replace("{d}", diff - DAY_RANGE) : t("b_range_less").replace("{d}", -diff - DAY_RANGE);
+    $("c-range").className = complete ? (inRange ? "note" : "error") : "muted";
+    $("c-add").disabled = !complete || !inRange || draft.length >= 7;
   }
   $("c-add").addEventListener("click", () => {
     if (draft.length >= 7 || !SLOTS.every(k => custom[k])) return;
+    const sum = SLOTS.reduce((a, k) => a + ((recipeById(custom[k]) || {}).kcal || 0), 0);
+    if (Math.abs(sum - me.kcal) > DAY_RANGE) return;
     const n = draft.filter(p => p.source === "custom").length + 1;
-    draft.push({ name: String(me.kcal), kcal: me.kcal, meals: { ...custom }, source: "custom" });
+    draft.push({ name: String(me.kcal), kcal: me.kcal, meals: { ...custom }, source: "custom", total: sum });
     custom = {}; saveDraft(); renderBuild(me);
   });
   document.querySelectorAll("[data-btab]").forEach(b => b.addEventListener("click", () => { tab = b.dataset.btab; renderBuild(me); }));
   $("b-save").addEventListener("click", async () => {
     if (draft.length < 7) return;
     busy($("b-save"), true);
-    try { await updateMe({ plans: draft.slice(0, 7) }); draft = []; saveDraft(); }
+    try { await updateMe({ plans: draft.slice(0, 7), plans_approved: false, today: null }); draft = []; saveDraft(); }
     catch (e) { $("b-err").textContent = friendlyError(e); } finally { busy($("b-save"), false); }
   });
 
@@ -706,6 +725,7 @@ if ($("login-form")) {
       title: "مساعد نجود", open: "اسأل المساعد", ph: "اكتب سؤالك…", send: "إرسال",
       hi: "هلا! أنا مساعد نجود 🌿 أقدر أقولك وجبتك الجاية، طريقة الوصفة، المكونات، وكم سعرة باقي لك اليوم.",
       chips: ["وش وجبتي الجاية؟", "كيف أسويها؟", "كم سعرة باقي؟", "جدول اليوم"],
+      approve_wait: "أيامك السبعة وصلت للأخصائية وتنتظر اعتمادها. أول ما تعتمدها تقدر تبدأ.",
       no_plan: "لسا ما اخترت جدول اليوم. اختر واحد من أيامك السبعة فوق وبعدين اسألني.",
       no_days: "لسا ما اخترت أيامك السبعة. اختارها فوق وبعدين أقدر أساعدك.",
       wait: "الأخصائية لسا ما حددت سعراتك. أول ما تحددها يطلع لك جدولك.",
@@ -727,6 +747,7 @@ if ($("login-form")) {
       title: "Nojood helper", open: "Ask the helper", ph: "Type your question…", send: "Send",
       hi: "Hi! I'm the Nojood helper 🌿 I can tell you your next meal, how to make it, the ingredients, and how many calories you have left today.",
       chips: ["What's my next meal?", "How do I make it?", "Calories left?", "Today's plan"],
+      approve_wait: "Your 7 days were sent to your dietitian and are waiting for her approval. You can start as soon as she approves them.",
       no_plan: "You haven't picked today's plan yet. Pick one of your 7 days above, then ask me.",
       no_days: "You haven't chosen your 7 days yet. Choose them above, then I can help.",
       wait: "Your dietitian hasn't set your calories yet. Your plan shows up as soon as she does.",
@@ -774,13 +795,14 @@ if ($("login-form")) {
     if (has(q, W.change) && has(q, W.kcal.concat(["جدول", "plan"]))) return ct("change");
     if (has(q, W.workout)) {
       if (!(PACKAGES[c.package] && PACKAGES[c.package].workout)) return ct("workout_basic");
-      const wl = [[t("wk_upper"), c.workout_upper], [t("wk_lower"), c.workout_lower], [t("wk_full"), c.workout_link]].filter(x => x[1]);
-      return wl.length ? ct("workout", { link: "\n" + wl.map(x => x[0] + ": " + x[1]).join("\n") }) : ct("workout_none");
+      const wl = workoutDays(c).map((d, i) => [t("wk_day") + " " + (i + 1), d]).filter(x => x[1].link || x[1].note);
+      return wl.length ? ct("workout", { link: "\n" + wl.map(x => x[0] + ": " + (x[1].link || "") + (x[1].note ? "\n📝 " + x[1].note : "")).join("\n") }) : ct("workout_none");
     }
     if (has(q, W.offday)) return isOffToday(c) ? ct("off") : ct("offday");
     if (has(q, W.skip)) return ct("skip");
     if (!c.kcal) return ct("wait");
     if ((c.plans || []).length < 7) return ct("no_days");
+    if (!c.plans_approved) return ct("approve_wait");
     if (isOffToday(c)) return ct("off");
     const st = dayState(c);
     if (!st) return ct("no_plan");
@@ -1033,6 +1055,7 @@ if ($("admin-login")) {
     const c = clientById(openClient);
     if (!c) { openClient = null; return renderClients(); }
     $("cd-name").textContent = c.name;
+    if (editFor !== openClient) { editPlanIdx = null; editFor = openClient; }
     if (typeof renderSuggest === "function") renderSuggest();
     if (typeof renderProExtras === "function") { rnArmed = false; renderProExtras(c); }
     const rows = [
@@ -1044,9 +1067,9 @@ if ($("admin-login")) {
     $("wa-client").href = waLink(saudiNumber(c.phone), (LANG === "ar" ? "مرحباً " : "Hi ") + (c.name || "").split(" ")[0]);
     $("wa-client").textContent = "💬 " + t("ad_wa_client");
     $("cd-ib-pending").hidden = !c.inbody_requested;
-    $("cd-workout").value = c.workout_link || "";
-    $("cd-workout-upper").value = c.workout_upper || "";
-    $("cd-workout-lower").value = c.workout_lower || "";
+    $("cd-wk-days").innerHTML = workoutDays(c).map((d, i) => '<div class="wk-edit"><b>' + esc(t("wk_day")) + " " + (i + 1) + "</b>" +
+      '<input id="cd-wk-link-' + i + '" type="url" dir="ltr" placeholder="https://..." value="' + esc(d.link) + '">' +
+      '<textarea id="cd-wk-note-' + i + '" rows="2" placeholder="' + esc(t("ad_wk_note")) + '">' + esc(d.note) + "</textarea></div>").join("");
     $("cd-workout-card").hidden = !(PACKAGES[c.package] && PACKAGES[c.package].workout);  // basic package has no workout plan
     $("cd-kcal").value = c.kcal || "";
     $("cd-kcal-msg").textContent = "";
@@ -1059,11 +1082,22 @@ if ($("admin-login")) {
     if (!plans.length) $("cd-progress").innerHTML = "<p class='muted'>" + esc(t("ad_no_plans")) + "</p>";
     else {
       const st = plans.length >= 7 ? dayState(c) : null;
-      const planCards = plans.slice(0, 7).map((p, i) => '<div class="mini-plan' + (st && st.today.plan === i ? " is-today" : "") + '"><b>' + esc(t("pt_day")) + " " + (i + 1) + " · " + esc(planTitle(p)) + "</b>" + mealNamesHTML(p.meals) + "</div>").join("");
+      const dayTotal = m => SLOTS.reduce((a, k) => a + ((recipeById(m[k]) || {}).kcal || 0), 0);
+      const planCards = plans.slice(0, 7).map((p, i) => {
+        if (editPlanIdx === i) {   // Nojood edits one of the client's days
+          return '<div class="mini-plan editing"><b>' + esc(t("pt_day")) + " " + (i + 1) + "</b>" + SLOTS.map(k => '<div class="field" style="margin-top:6px"><label>' + esc(slotLabel(k)) + '</label><select data-ep="' + k + '">' +
+            recipesFor(k).map(r => '<option value="' + esc(r.id) + '"' + (p.meals[k] === r.id ? " selected" : "") + ">" + esc(rText(r, "name")) + " (" + r.kcal + ")</option>").join("") + "</select></div>").join("") +
+            "<p class='muted' id='ep-total' style='margin:8px 0'>" + esc(t("ep_total")) + " " + dayTotal(p.meals) + " / " + (c.kcal || p.kcal) + "</p>" +
+            "<div class='btn-row' style='justify-content:flex-start'><button class='btn small' id='ep-save' type='button'>" + esc(t("ad_save")) + "</button><button class='btn outline small' id='ep-cancel' type='button'>" + esc(t("ep_cancel")) + "</button></div></div>";
+        }
+        return '<div class="mini-plan' + (st && st.today.plan === i ? " is-today" : "") + '"><b>' + esc(t("pt_day")) + " " + (i + 1) + " · " + esc(planTitle(p)) + "</b> <small class='muted'>(" + (p.total || dayTotal(p.meals)) + ")</small>" +
+          ' <button class="link-btn" data-editplan="' + i + '" type="button">✏️ ' + esc(t("ep_edit")) + "</button>" + mealNamesHTML(p.meals) + "</div>";
+      }).join("");
       const hist = (c.history || []).slice().reverse().slice(0, 14);
       const offNow = isOffToday(c);
       const histRows = (st ? [{ date: st.today.date, plan: st.today.plan, done: st.done, skipped: st.slots.filter(x => x.status === "skip").length, isToday: true }] : offNow ? [{ date: c.today.date, off: true, isToday: true }] : []).concat(hist);
       $("cd-progress").innerHTML = (st ? "<p><b>" + esc(t("ad_today")) + ":</b> " + esc(planTitle(st.plan)) + " — " + st.done + " / " + SLOTS.length + " " + esc(t("h_meals")) + "</p>" : offNow ? "<p><b>" + esc(t("ad_today")) + ":</b> 🌿 " + esc(t("off_title")) + "</p>" : "") +
+        (plans.length >= 7 && !c.plans_approved ? "<div class='approve-box'><span class='status-pill'>" + esc(t("ap_pending")) + "</span><p style='margin:8px 0'>" + esc(t("ap_pro_text")) + "</p><div class='btn-row' style='justify-content:flex-start'><button class='btn' id='ap-approve' type='button'>" + esc(t("ap_approve")) + "</button><button class='btn outline' id='ap-back' type='button'>" + esc(t("ap_back")) + "</button></div></div>" : "") +
         "<div class='mini-plans'>" + planCards + "</div>" +
         "<h4>" + esc(t("ad_history")) + "</h4>" +
         (histRows.length ? "<div class='table-wrap'><table><tr><th>" + [t("h_date"), t("h_plan"), t("h_meals"), t("cd_skipped")].map(esc).join("</th><th>") + "</th></tr>" +
@@ -1105,9 +1139,9 @@ if ($("admin-login")) {
   $("reject-pay").addEventListener("click", () => changeClient({ pay_status: "rejected" }));
   $("send-ib").addEventListener("click", () => changeClient({ inbody_requested: true, inbody_requested_at: new Date().toISOString() }, t("ad_ib_sent")));
   $("cd-workout-save").addEventListener("click", async () => {
-    const vals = ["cd-workout-upper", "cd-workout-lower", "cd-workout"].map(id => $(id).value.trim());
-    if (vals.some(v => v && !/^https?:\/\//i.test(v))) { $("cd-workout-msg").textContent = t("err_link"); return; }
-    await changeClient({ workout_upper: vals[0] || null, workout_lower: vals[1] || null, workout_link: vals[2] || null });
+    const days = [0, 1, 2, 3, 4].map(i => ({ link: $("cd-wk-link-" + i).value.trim(), note: $("cd-wk-note-" + i).value.trim() }));
+    if (days.some(d => d.link && !/^https?:\/\//i.test(d.link))) { $("cd-workout-msg").textContent = t("err_link"); return; }
+    await changeClient({ workout_days: days });
     $("cd-workout-msg").textContent = t("ad_saved_ok");
   });
   $("cd-kcal-save").addEventListener("click", async () => {
@@ -1117,10 +1151,33 @@ if ($("admin-login")) {
     $("cd-kcal-msg").textContent = t("ad_saved_ok");
   });
   let resetArmed = false;
+  let backArmed = false, editPlanIdx = null, editFor = null;
+  $("cd-progress").addEventListener("change", e => {
+    if (!e.target.dataset.ep) return;
+    const c = clientById(openClient), sum = SLOTS.reduce((a, k) => a + ((recipeById($("cd-progress").querySelector('[data-ep="' + k + '"]').value) || {}).kcal || 0), 0);
+    $("ep-total").textContent = t("ep_total") + " " + sum + " / " + (c.kcal || "—");
+  });
+  $("cd-progress").addEventListener("click", async e => {
+    const ed = e.target.closest("[data-editplan]");
+    if (ed) { editPlanIdx = +ed.dataset.editplan; editFor = openClient; return renderDetail(); }
+    if (e.target.id === "ep-cancel") { editPlanIdx = null; return renderDetail(); }
+    if (e.target.id === "ep-save") {
+      const c = clientById(openClient), plans = (c.plans || []).map(x => ({ ...x, meals: { ...x.meals } }));
+      const meals = {}; SLOTS.forEach(k => { meals[k] = $("cd-progress").querySelector('[data-ep="' + k + '"]').value; });
+      plans[editPlanIdx] = { ...plans[editPlanIdx], meals, total: SLOTS.reduce((a, k) => a + ((recipeById(meals[k]) || {}).kcal || 0), 0), edited_by_dietitian: true };
+      editPlanIdx = null; busy(e.target, true);
+      return changeClient({ plans }, t("ep_saved"));
+    }
+    if (e.target.id === "ap-approve") { busy(e.target, true); await changeClient({ plans_approved: true, today: null }, t("ap_done")); }
+    if (e.target.id === "ap-back") {
+      if (!backArmed) { backArmed = true; e.target.textContent = t("ap_back_sure"); return; }
+      backArmed = false; await changeClient({ plans: [], plans_approved: false, today: null }, t("ap_back_done"));
+    }
+  });
   $("cd-reset").addEventListener("click", async () => {
     if (!resetArmed) { resetArmed = true; $("cd-reset").textContent = t("ad_confirm_delete"); return; }
     resetArmed = false; $("cd-reset").textContent = t("ad_reset_plans");
-    await changeClient({ plans: [], today: null });
+    await changeClient({ plans: [], plans_approved: false, today: null });
   });
   $("refresh-btn").addEventListener("click", async () => { busy($("refresh-btn"), true); await Promise.all([loadClients(), loadSchedules(), loadRecipes()]); renderAll(); busy($("refresh-btn"), false); });
 
@@ -1295,7 +1352,7 @@ if ($("admin-login")) {
       if ((c.plans || []).length && !approveArmed) { approveArmed = true; return renderSuggest(); }
       const newPlans = opt.map((x, i) => ({ name: String(k.kcal), kcal: k.kcal, meals: x.meals, source: "agent" }));
       approveArmed = false;
-      await changeClient({ kcal: k.kcal, plans: newPlans, today: null });
+      await changeClient({ kcal: k.kcal, plans: newPlans, plans_approved: true, today: null });
       renderSuggest(); $("sg-msg").textContent = ag("sg_done");
     });
   }
@@ -1317,6 +1374,7 @@ if ($("admin-login")) {
       if (!isPaid(c)) { if (c.pay_status === "pending" && c.receipt_path) add(2, ag("att_pay")); return; }
       if (!c.kcal) { const d = daysSince(c.created_at); add(d >= 2 ? 3 : 2, ag("att_kcal", { d })); if (healthFlag(c)) add(3, ag("att_health")); return; }
       if ((c.plans || []).length < 7) { const d = daysSince(c.created_at); if (d >= 3) add(2, ag("att_days", { d })); return; }
+      if (!c.plans_approved) { add(3, t("att_approve")); return; }
       const la = lastActive(c);
       if (la) { const d = daysSince(la + "T12:00:00"); if (d >= 3) add(d >= 7 ? 3 : 2, ag("att_idle", { d })); }
       const last7 = (c.history || []).filter(h => !h.off).slice(-7);
@@ -1379,7 +1437,7 @@ if ($("admin-login")) {
     $("rn-confirm").addEventListener("click", async () => {
       if (!rnArmed) { rnArmed = true; return renderProExtras(c); }
       rnArmed = false;
-      const ch = { period_start: new Date().toISOString(), renew_requested_at: null, plans: [], today: null };
+      const ch = { period_start: new Date().toISOString(), renew_requested_at: null, plans: [], plans_approved: false, today: null };
       if (PAYMENT_ENABLED) Object.assign(ch, { paid: true, pay_status: "confirmed" });
       await changeClient(ch);
       $("rn-msg").textContent = px("rn_done");

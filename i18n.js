@@ -31,11 +31,11 @@ const I18N = {
     pk_basic_name: "Nutrition Plan",
     pk_plus_name: "Nutrition + Workout",
     pk_popular: "Most popular",
-    pk_f1: "Ready meal plans that fit your calories",
+    pk_f1: "Build your own days from Nojood's recipes, approved by her",
     pk_f2: "Daily calorie target",
     pk_f3: "Weekly check-in on WhatsApp",
     pk_f4: "Plan updates as you progress",
-    pk_f5: "Workout plan for your goal",
+    pk_f5: "5-day workout plan with notes from your dietitian",
     pk_f6: "Build your own days from the recipes",
     pk_choose: "Choose this package",
 
@@ -230,11 +230,11 @@ const I18N = {
     pk_basic_name: "خطة التغذية",
     pk_plus_name: "تغذية + تمارين",
     pk_popular: "الأكثر طلباً",
-    pk_f1: "جداول أكل جاهزة على سعراتك",
+    pk_f1: "تصمّم أيامك من وصفات نجود وهي تعتمدها لك",
     pk_f2: "سعرات يومية محددة لك",
     pk_f3: "متابعة أسبوعية على واتساب",
     pk_f4: "تحديث الخطة مع تقدّمك",
-    pk_f5: "جدول تمارين حسب هدفك",
+    pk_f5: "جدول تمارين ٥ أيام مع ملاحظات الأخصائية",
     pk_f6: "تصمّم جدولك بنفسك من الوصفات",
     pk_choose: "اختر هذه الباقة",
 
@@ -449,4 +449,26 @@ Object.assign(I18N.ar, {
   gr_show: "اعرض قائمتي", gr_hide: "اخفِ القائمة", gr_total: "التكلفة التقريبية:", gr_need: "تحتاج", gr_note: "الأسعار تقديرية وتختلف من محل لمحل.",
   rn_title: "باقتك تخلص بعد {d} أيام", rn_ended: "باقتك خلصت", rn_text: "تاريخ النهاية: {date}. جدّد عشان تكمل خطتك شهر ثاني.",
   rn_btn: "تجديد", rn_sent: "وصل طلب التجديد ✓ الأخصائية بتأكده."
+});
+
+// ===== Approval of the 7 days, ±50 kcal, 5 workout days =====
+Object.assign(I18N.en, {
+  b_range_note: "It's okay if a day is up to 50 calories more or less than your target.",
+  b_range_ok: "This day fits your calories ✓", b_range_more: "{d} calories too many — swap something lighter", b_range_less: "{d} calories short — add something a bit bigger",
+  ap_pill: "Waiting for your dietitian's approval", ap_text: "Your 7 days were sent to Nojood. Once she approves them, they appear here and you can start.",
+  ap_pending: "Waiting for your approval", ap_pro_text: "The client built these 7 days. Approve them so they appear to the client, or send them back to rebuild.",
+  ap_approve: "Approve the 7 days", ap_back: "Send back to rebuild", ap_back_sure: "Sure? Their days will be cleared", ap_done: "Approved ✓ The client can start now.", ap_back_done: "Sent back. The client will build the days again.",
+  att_approve: "Built 7 days — waiting for your approval",
+  ep_edit: "Edit", ep_cancel: "Cancel", ep_total: "Day total:", ep_saved: "Day updated ✓",
+  wk_day: "Day", wk_open_day: "Open workout", wk_none: "Your dietitian will add your workout days here.", ad_wk_note: "Note for this day (shows to the client)"
+});
+Object.assign(I18N.ar, {
+  b_range_note: "عادي لو اليوم زاد أو نقص ٥٠ سعرة عن سعراتك.",
+  b_range_ok: "هذا اليوم مناسب لسعراتك ✓", b_range_more: "زايد {d} سعرة — بدّل شي بأخف منه", b_range_less: "ناقص {d} سعرة — بدّل شي بأكبر منه",
+  ap_pill: "بانتظار اعتماد الأخصائية", ap_text: "أيامك السبعة وصلت لنجود. أول ما تعتمدها تطلع لك هنا وتقدر تبدأ.",
+  ap_pending: "تنتظر اعتمادك", ap_pro_text: "العميل صمّم هذي الأيام السبعة. اعتمديها عشان تطلع له، أو رجّعيها يعيد تصميمها.",
+  ap_approve: "اعتمدي الأيام السبعة", ap_back: "رجّعيها يعيدها", ap_back_sure: "متأكدة؟ بتنمسح أيامه", ap_done: "تم الاعتماد ✓ العميل يقدر يبدأ.", ap_back_done: "رجعت للعميل يعيد تصميم أيامه.",
+  att_approve: "صمّم أيامه السبعة — تنتظر اعتمادك",
+  ep_edit: "تعديل", ep_cancel: "إلغاء", ep_total: "مجموع اليوم:", ep_saved: "انحفظ التعديل ✓",
+  wk_day: "اليوم", wk_open_day: "افتح التمرين", wk_none: "الأخصائية بتضيف أيام تمارينك هنا.", ad_wk_note: "ملاحظة لهذا اليوم (تطلع للعميل)"
 });

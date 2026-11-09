@@ -332,3 +332,10 @@ details p { margin: 6px 0 0; color: var(--text); }
 .gr-price { min-width: 56px; text-align: end; white-space: nowrap; }
 .gr-items li.done span, .gr-items li.done b { text-decoration: line-through; color: var(--muted); }
 .gr-total { display: flex; justify-content: space-between; font-size: 1.1rem; margin: 14px 0 4px; }
+
+/* 5 workout days + approval */
+.wk-day { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
+.wk-day-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.wk-note { margin: 8px 0 0; color: var(--text); white-space: pre-line; }
+.wk-edit { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.approve-box { background: var(--warn-bg); color: var(--warn-fg); border-radius: 12px; padding: 12px; margin-bottom: 12px; }

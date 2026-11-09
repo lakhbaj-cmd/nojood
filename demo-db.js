@@ -35,16 +35,25 @@ if (isDemo()) {
       { id: "demo-sara", role: "client", name: "سارة أحمد", email: "sara@demo.sa", phone: "0500000000", sex: "female", age: 27, height: 162, weight: 68, activity: 1.375, goal: "lose",
         kcal: 1340, bmr: 1400, package: "plus", paid: true, pay_status: "confirmed", plans: SEVEN, today: { date: day(0), plan: 0, progress: { b: "done" } },
         history: [{ date: day(3), plan: 1, done: 5, skipped: 0 }, { date: day(2), plan: 3, done: 4, skipped: 1 }, { date: day(1), plan: 2, done: 5, skipped: 0 }],
-        workout_link: "https://www.youtube.com/results?search_query=full+body+home+workout", workout_upper: "https://www.youtube.com/results?search_query=upper+body+home+workout", workout_lower: "https://www.youtube.com/results?search_query=lower+body+home+workout", inbody_requested: false, health: "", food: "ما أحب السمك", created_at: ago(26), period_start: ago(26) },
+        plans_approved: true, workout_days: [
+          { link: "https://www.youtube.com/results?search_query=upper+body+home+workout", note: "ابدئي بإحماء ٥ دقايق، وخذي راحة دقيقة بين كل مجموعة." },
+          { link: "https://www.youtube.com/results?search_query=lower+body+home+workout", note: "ركزي على السكوات صح، الظهر مستقيم." },
+          { link: "https://www.youtube.com/results?search_query=walking+workout+30+minutes", note: "مشي سريع ٣٠ دقيقة — يوم خفيف." },
+          { link: "https://www.youtube.com/results?search_query=full+body+home+workout", note: "" },
+          { link: "https://www.youtube.com/results?search_query=stretching+20+minutes", note: "إطالة وراحة، لا تضغطين على نفسك." }
+        ], inbody_requested: false, health: "", food: "ما أحب السمك", created_at: ago(26), period_start: ago(26) },
       { id: "demo-noura", role: "client", name: "نورة خالد", email: "noura@demo.sa", phone: "0550000000", sex: "female", age: 31, height: 158, weight: 74, activity: 1.2, goal: "lose",
         kcal: 1250, bmr: 1390, package: "plus", paid: false, pay_status: "pending", receipt_path: "demo/receipt.svg", receipt_type: "image", receipt_sender: "Noura K.", receipt_amount: 250,
         receipt_date: new Date().toISOString(), plans: [], history: [], inbody_requested: true, health: "غدة درقية وآخذ دواء", created_at: ago(4) },
       { id: "demo-reem", role: "client", name: "ريم سعد", email: "reem@demo.sa", phone: "0560000000", sex: "female", age: 24, height: 165, weight: 60, activity: 1.55, goal: "keep",
-        kcal: null, bmr: null, package: "basic", paid: true, pay_status: "confirmed", plans: [], history: [], inbody_requested: false, health: "", food: "", created_at: ago(3) },
+        kcal: null, bmr: null, package: "plus", paid: true, pay_status: "confirmed", plans: [], history: [], inbody_requested: false, health: "", food: "", created_at: ago(3) },
       { id: "demo-hind", role: "client", name: "هند محمد", email: "hind@demo.sa", phone: "0570000000", sex: "female", age: 38, height: 160, weight: 80, activity: 1.2, goal: "lose",
-        kcal: 1350, package: "plus", paid: true, pay_status: "confirmed", plans: SEVEN, today: null,
+        kcal: 1350, package: "plus", paid: true, pay_status: "confirmed", plans: SEVEN, plans_approved: true, today: null,
         history: [{ date: day(9), plan: 0, done: 2, skipped: 3 }, { date: day(8), plan: 1, done: 1, skipped: 4 }, { date: day(7), plan: 2, done: 2, skipped: 3 }, { date: day(6), plan: 4, done: 1, skipped: 2 }, { date: day(5), plan: 5, done: 0, skipped: 5 }],
         inbody_requested: false, health: "", food: "", created_at: ago(29), period_start: ago(29), renew_requested_at: ago(1) }
+      ,{ id: "demo-lama", role: "client", name: "لمى فهد", email: "lama@demo.sa", phone: "0580000000", sex: "female", age: 29, height: 165, weight: 72, activity: 1.375, goal: "lose",
+        kcal: 1340, package: "plus", paid: true, pay_status: "confirmed", plans: SEVEN.filter(p => p.source === "custom").concat(SEVEN.filter(p => p.source === "custom")).concat([SEVEN[3]]).map(p => ({ ...p, total: 1330 })), plans_approved: false, today: null, history: [],
+        inbody_requested: false, health: "", food: "", created_at: ago(2), period_start: ago(2) }
     ],
     schedules: (typeof DEMO_SCHEDULES === "function" ? DEMO_SCHEDULES() : []).map((s, i) => ({ id: "demo-s" + i, created_at: new Date().toISOString(), ...s })),
     recipes: [],

@@ -129,24 +129,26 @@
           <p class="muted" style="margin:0" data-i18n="b_sub"></p>
           <p class="stat" style="margin:10px 0 0"><span data-i18n="b_count"></span> <bdi dir="ltr"><span id="b-count">0</span> / 7</bdi></p>
         </div>
-        <div class="tabs" style="margin-top:14px">
-          <button class="tab active" data-btab="ready" data-i18n="tab_ready"></button>
-          <button class="tab" data-btab="custom" data-i18n="tab_custom"></button>
+        <div class="tabs" style="margin-top:14px" hidden>
+          <button class="tab" data-btab="ready" data-i18n="tab_ready"></button>
+          <button class="tab active" data-btab="custom" data-i18n="tab_custom"></button>
         </div>
-        <div id="b-ready">
+        <div id="b-ready" hidden>
           <p class="muted"><span data-i18n="pt_choose_sub"></span> (<b id="b-kcal"></b> <span data-i18n="kcal_short"></span>)</p>
           <div class="sched-list" id="b-ready-list"></div>
           <p class="note" id="b-no-ready" hidden data-i18n="b_no_ready"></p>
         </div>
-        <div id="b-custom" class="card" hidden>
+        <div id="b-custom" class="card" style="margin-top:14px">
           <p class="muted" style="margin-top:0" data-i18n="b_custom_sub"></p>
+          <p class="note" style="margin-top:0" data-i18n="b_range_note"></p>
           <div class="kcal-row">
             <div><span class="muted small-label" data-i18n="b_target"></span><b id="c-target"></b></div>
             <div><span class="muted small-label" data-i18n="b_total"></span><b id="c-total"></b></div>
             <div><span class="muted small-label" data-i18n="b_remaining"></span><b id="c-left"></b></div>
           </div>
           <div class="form-grid" id="c-slots" style="margin-top:12px"></div>
-          <button class="btn" id="c-add" style="margin-top:14px" data-i18n="b_add_day"></button>
+          <p class="muted" id="c-range" style="margin:12px 0 0"></p>
+          <button class="btn" id="c-add" style="margin-top:10px" data-i18n="b_add_day"></button>
         </div>
         <div class="card" style="margin-top:14px">
           <h3 style="margin-top:0" data-i18n="b_your_days"></h3>
@@ -155,6 +157,13 @@
           <p class="error" id="b-err"></p>
           <button class="btn" id="b-save" disabled data-i18n="b_save"></button>
         </div>
+      </div>
+
+      <!-- B2: 7 days sent, waiting for the dietitian to approve -->
+      <div class="card" id="v-plans-wait" hidden style="margin-top:14px">
+        <span class="status-pill" data-i18n="ap_pill"></span>
+        <p class="note" data-i18n="ap_text"></p>
+        <ul class="meal-list chosen-days" id="ap-days"></ul>
       </div>
 
       <!-- C: pick today's plan -->
@@ -233,11 +242,7 @@
       <!-- Workout link from the dietitian -->
       <div class="card" style="margin-top:14px" id="workout-card" hidden>
         <h3 style="margin-top:0" data-i18n="wk_title"></h3>
-        <div class="btn-row wk-links" style="justify-content:flex-start">
-          <a class="btn" id="wk-upper" href="#" target="_blank" rel="noopener" hidden data-i18n="wk_upper"></a>
-          <a class="btn" id="wk-lower" href="#" target="_blank" rel="noopener" hidden data-i18n="wk_lower"></a>
-          <a class="btn" id="wk-link" href="#" target="_blank" rel="noopener" hidden data-i18n="wk_full"></a>
-        </div>
+        <div class="wk-days" id="wk-days"></div>
         <p class="note" id="wk-none" data-i18n="wk_none"></p>
       </div>
 
