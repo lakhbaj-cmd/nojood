@@ -472,3 +472,17 @@ Object.assign(I18N.ar, {
   ep_edit: "تعديل", ep_cancel: "إلغاء", ep_total: "مجموع اليوم:", ep_saved: "انحفظ التعديل ✓",
   wk_day: "اليوم", wk_open_day: "افتح التمرين", wk_none: "الأخصائية بتضيف أيام تمارينك هنا.", ad_wk_note: "ملاحظة لهذا اليوم (تطلع للعميل)"
 });
+
+// ===== Notifications =====
+Object.assign(I18N.en, {
+  nt_title: "Notifications", nt_empty: "No notifications yet.",
+  ps_enable: "Turn on phone notifications", ps_on: "Phone notifications are on ✓", ps_denied: "Notifications are blocked. Allow them in your phone settings for this app.",
+  ps_ios: "On iPhone: tap Share → Add to Home Screen, open the app from there, then turn on notifications here.",
+  ps_unsupported: "This browser doesn't support phone notifications. You'll still see them here.", ps_error: "Couldn't turn on notifications. Try again."
+});
+Object.assign(I18N.ar, {
+  nt_title: "الإشعارات", nt_empty: "ما فيه إشعارات للحين.",
+  ps_enable: "فعّل إشعارات الجوال", ps_on: "إشعارات الجوال مفعّلة ✓", ps_denied: "الإشعارات مقفلة. فعّلها من إعدادات الجوال لهذا التطبيق.",
+  ps_ios: "في الآيفون: اضغط زر المشاركة ← إضافة إلى الشاشة الرئيسية، افتح التطبيق من هناك، وبعدين فعّل الإشعارات من هنا.",
+  ps_unsupported: "هذا المتصفح ما يدعم إشعارات الجوال. بتشوفها هنا داخل التطبيق.", ps_error: "ما قدرنا نفعّل الإشعارات. جرّب مرة ثانية."
+});

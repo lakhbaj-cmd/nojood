@@ -240,6 +240,117 @@ function calcCalories(c, ib) {
   return { bmr: Math.round(bmr / 10) * 10, kcal: Math.round(daily / 10) * 10, method };
 }
 
+// ===== Notifications: bell inside the app + phone push =====
+const PUSH_FN = SUPABASE_URL + "/functions/v1/push";
+const NT_EN = {
+  pay_ok: ["Transfer confirmed ✓", "Welcome to Nojood Nutrition! Your dietitian will set your calories soon."],
+  pay_bad: ["We couldn't confirm your transfer", "Open the app and upload the receipt again."],
+  kcal_set: ["Your calories are ready 🎯", "Build your 7 days now."],
+  plans_ok: ["Your days were approved ✓", "You can start your plan today."],
+  plans_back: ["Your dietitian sent your days back", "Please build your 7 days again."],
+  renew_ok: ["Your package was renewed ✓", "A new month started — build your 7 days."],
+  workout: ["Your workout plan was updated 💪", "Open the app to see your workouts."],
+  inbody: ["Your dietitian asks for InBody", "Upload your results from the app."],
+  new_receipt: ["New transfer receipt", "{name} uploaded a transfer receipt."],
+  plans_new: ["Days waiting for your approval", "{name} built their 7 days."],
+  renew_req: ["Renewal request", "{name} wants to renew the package."],
+  new_client: ["New client 🎉", "{name} signed up to Nojood."],
+  checkin: ["Weekly check-in", "{name} logged their weight."]
+};
+function ntText(n) {
+  if (LANG === "ar" || !NT_EN[n.kind]) return [n.title, n.body || ""];
+  return NT_EN[n.kind].map(s => s.replace("{name}", n.about_name || ""));
+}
+function timeAgo(iso) {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000), ar = LANG === "ar";
+  if (m < 1) return ar ? "الحين" : "now";
+  if (m < 60) return ar ? "قبل " + m + " د" : m + " min ago";
+  const h = Math.floor(m / 60); if (h < 24) return ar ? "قبل " + h + " س" : h + " h ago";
+  const d = Math.floor(h / 24); return ar ? "قبل " + d + " يوم" : d + " d ago";
+}
+function urlB64ToBytes(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4), raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const isInstalled = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
+const Bell = (() => {
+  let uid = null, list = [], timer = null;
+  const wrap = document.createElement("div");
+  wrap.className = "bell-wrap"; wrap.hidden = true;
+  wrap.innerHTML = '<button class="bell-btn" type="button" aria-haspopup="true">🔔<span class="bell-count" hidden></span></button>' +
+    '<div class="card bell-panel" hidden><div class="bell-head"><b class="bell-title"></b><button class="link-btn bell-close" type="button">✕</button></div>' +
+    '<div class="bell-push"></div><ul class="bell-list"></ul></div>';
+  const $b = sel => wrap.querySelector(sel);
+  function place() {
+    const head = document.querySelector("#dash-view .dash-head, #admin-view .dash-head");
+    if (head && wrap.parentNode !== head) head.appendChild(wrap);
+  }
+  async function load() {
+    if (!uid) return;
+    try { list = await DB.select("notifications", "select=*&user_id=eq." + uid + "&order=created_at.desc&limit=30"); } catch (e) { list = []; }
+    render();
+  }
+  function pushState() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return isIOS() && !isInstalled() ? "ios" : "no";
+    if (Notification.permission === "denied") return "denied";
+    if (Notification.permission === "granted" && localStorage.getItem("nojood_push_" + uid) === "1") return "on";
+    return "off";
+  }
+  function render() {
+    const unread = list.filter(n => !n.read).length;
+    $b(".bell-count").hidden = !unread; $b(".bell-count").textContent = unread > 9 ? "9+" : unread;
+    $b(".bell-title").textContent = t("nt_title");
+    const st = pushState();
+    $b(".bell-push").innerHTML = st === "on" ? '<p class="muted bell-note">📱 ' + esc(t("ps_on")) + "</p>"
+      : st === "off" ? '<button class="btn small" type="button" data-push>📱 ' + esc(t("ps_enable")) + "</button><p class='muted bell-note' data-push-msg></p>"
+      : '<p class="muted bell-note">📱 ' + esc(t(st === "ios" ? "ps_ios" : st === "denied" ? "ps_denied" : "ps_unsupported")) + "</p>";
+    $b(".bell-list").innerHTML = list.length ? list.map(n => { const [ti, bo] = ntText(n);
+      return '<li class="' + (n.read ? "" : "unread") + '"><b>' + esc(ti) + "</b>" + (bo ? "<span>" + esc(bo) + "</span>" : "") + "<small class='muted'>" + esc(timeAgo(n.created_at)) + "</small></li>"; }).join("")
+      : "<li class='muted'>" + esc(t("nt_empty")) + "</li>";
+    const pb = $b("[data-push]"); if (pb) pb.addEventListener("click", () => enablePush(pb));
+  }
+  async function markRead() {
+    const ids = list.filter(n => !n.read).map(n => n.id);
+    list.forEach(n => { n.read = true });
+    for (const id of ids) { try { await DB.update("notifications", id, { read: true }); } catch (e) {} }
+  }
+  async function enablePush(btn) {
+    const out = $b("[data-push-msg]");
+    busy(btn, true);
+    try {
+      if (await Notification.requestPermission() !== "granted") { out.textContent = t("ps_denied"); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const { publicKey } = await fetch(PUSH_FN, { headers: { apikey: SUPABASE_KEY } }).then(r => r.json());
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToBytes(publicKey) });
+      const j = sub.toJSON();
+      try { await DB.insert("push_subscriptions", { user_id: uid, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }); }
+      catch (e) { if (!/duplicate|unique|conflict|23505/i.test(e.message + e.code)) throw e; }
+      try { localStorage.setItem("nojood_push_" + uid, "1"); } catch (e) {}
+      render();
+    } catch (e) { out.textContent = t("ps_error"); }
+    finally { busy(btn, false); }
+  }
+  $b(".bell-btn").addEventListener("click", () => {
+    const p = $b(".bell-panel"), opening = p.hidden;
+    p.hidden = !opening;
+    if (opening) { render(); markRead().then(() => { $b(".bell-count").hidden = true; }); }
+  });
+  $b(".bell-close").addEventListener("click", () => { $b(".bell-panel").hidden = true; render(); });
+  document.addEventListener("langchange", () => { if (uid) render(); });
+  return {
+    start(id) {
+      place(); wrap.hidden = false;
+      if (uid === id) return;
+      uid = id; load();
+      clearInterval(timer); timer = setInterval(load, 60000);
+    },
+    stop() { uid = null; list = []; wrap.hidden = true; $b(".bell-panel").hidden = true; clearInterval(timer); }
+  };
+})();
+
 // ===== Home page =====
 const waHero = $("wa-hero");
 if (waHero) {
@@ -396,6 +507,7 @@ if ($("login-form")) {
   function render() {
     const c = me;
     markSignedIn(!!c);
+    if (c) Bell.start(c.id); else Bell.stop();
     $("login-view").hidden = !!c;
     if ($("chat-fab")) { if (!c) { $("chat-panel").hidden = true; $("chat-msgs").innerHTML = ""; } $("chat-fab").hidden = !c || !$("chat-panel").hidden; }
     $("dash-view").hidden = !c;
@@ -893,7 +1005,8 @@ if ($("admin-login")) {
     $("pin-view").hidden = !!u;
     $("not-admin").hidden = !(u && !isAdmin);
     $("admin-view").hidden = !isAdmin;
-    if (!isAdmin) return;
+    if (!isAdmin) { Bell.stop(); return; }
+    Bell.start(u.id);
     $("loading").hidden = false;
     await Promise.all([loadSchedules(), loadRecipes(), loadClients()]);
     if (!SCHEDULES.length) { for (const s of DEMO_SCHEDULES()) await DB.insert("schedules", s); await loadSchedules(); }

@@ -339,3 +339,16 @@ details p { margin: 6px 0 0; color: var(--text); }
 .wk-note { margin: 8px 0 0; color: var(--text); white-space: pre-line; }
 .wk-edit { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .approve-box { background: var(--warn-bg); color: var(--warn-fg); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+
+/* Notifications bell */
+.dash-head { position: relative; }
+.bell-wrap { position: relative; }
+.bell-btn { position: relative; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); font-size: 1.2rem; cursor: pointer; }
+.bell-count { position: absolute; top: -4px; inset-inline-end: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--error); color: #fff; font-size: .75rem; font-weight: 700; line-height: 20px; text-align: center; }
+.bell-panel { position: absolute; top: 52px; inset-inline-end: 0; z-index: 40; width: min(340px, calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.bell-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.bell-note { font-size: .85rem; margin: 6px 0 0; }
+.bell-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.bell-list li { display: flex; flex-direction: column; gap: 2px; padding: 10px 6px; border-top: 1px solid var(--line); }
+.bell-list li.unread { background: var(--green-soft); border-radius: 10px; }
+.bell-list small { font-size: .75rem; }
