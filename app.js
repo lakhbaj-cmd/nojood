@@ -254,6 +254,7 @@ const NT_EN = {
   new_receipt: ["New transfer receipt", "{name} uploaded a transfer receipt."],
   plans_new: ["Days waiting for your approval", "{name} built their 7 days."],
   renew_req: ["Renewal request", "{name} wants to renew the package."],
+  plans_req: ["Days requested", "{name} wants you to build their 7 days."],
   new_client: ["New client 🎉", "{name} signed up to Nojood."],
   checkin: ["Weekly check-in", "{name} logged their weight."]
 };
@@ -523,7 +524,9 @@ if ($("login-form")) {
     $("wait-pending").hidden = c.pay_status === "rejected";
     const noKcal = paid && !c.kcal;
     $("v-kcal-wait").hidden = !noKcal;
-    $("v-build").hidden = !(paid && c.kcal && plans.length < 7);
+    const asked = !!c.plans_request_at && plans.length < 7;   // client asked Nojood to build the days
+    $("v-req-wait").hidden = !(paid && c.kcal && asked);
+    $("v-build").hidden = !(paid && c.kcal && plans.length < 7 && !asked);
     const off = paid && plans.length >= 7 && approved && isOffToday(c);
     $("v-plans-wait").hidden = !(paid && plans.length >= 7 && !approved);
     if (!$("v-plans-wait").hidden) $("ap-days").innerHTML = plans.slice(0, 7).map((p, i) => '<li><span class="day-num">' + (i + 1) + "</span><span class='grow'><b>" + esc(planTitle(p)) + "</b><br><small class='muted'>" + SLOTS.map(k => { const r = recipeById(p.meals[k]); return r ? esc(rText(r, "name")) : ""; }).filter(Boolean).join(" · ") + "</small></span></li>").join("");
@@ -726,6 +729,13 @@ if ($("login-form")) {
     custom = {}; saveDraft(); renderBuild(me);
   });
   document.querySelectorAll("[data-btab]").forEach(b => b.addEventListener("click", () => { tab = b.dataset.btab; renderBuild(me); }));
+  // "let the dietitian build my days"
+  $("rq-btn").addEventListener("click", async () => {
+    busy($("rq-btn"), true); $("rq-err").textContent = "";
+    try { await updateMe({ plans_request_at: new Date().toISOString() }); draft = []; saveDraft(); }
+    catch (e) { $("rq-err").textContent = friendlyError(e); } finally { busy($("rq-btn"), false); }
+  });
+  $("rq-cancel").addEventListener("click", async () => { await updateMe({ plans_request_at: null }); });
   $("b-save").addEventListener("click", async () => {
     if (draft.length < 7) return;
     busy($("b-save"), true);
@@ -1193,7 +1203,7 @@ if ($("admin-login")) {
     // the client's 7 days + daily history
     const plans = c.plans || [];
     $("cd-reset").hidden = !plans.length;
-    if (!plans.length) $("cd-progress").innerHTML = "<p class='muted'>" + esc(t("ad_no_plans")) + "</p>";
+    if (!plans.length) $("cd-progress").innerHTML = (c.plans_request_at ? "<div class='approve-box'><b>✋ " + esc(t("rq_pro")) + "</b><p style='margin:6px 0 0'>" + esc(t("rq_pro_how")) + "</p></div>" : "") + "<p class='muted'>" + esc(t("ad_no_plans")) + "</p>";
     else {
       const st = plans.length >= 7 ? dayState(c) : null;
       const dayTotal = m => SLOTS.reduce((a, k) => a + ((recipeById(m[k]) || {}).kcal || 0), 0);
@@ -1466,7 +1476,7 @@ if ($("admin-login")) {
       if ((c.plans || []).length && !approveArmed) { approveArmed = true; return renderSuggest(); }
       const newPlans = opt.map((x, i) => ({ name: String(k.kcal), kcal: k.kcal, meals: x.meals, source: "agent" }));
       approveArmed = false;
-      await changeClient({ kcal: k.kcal, plans: newPlans, plans_approved: true, today: null });
+      await changeClient({ kcal: k.kcal, plans: newPlans, plans_approved: true, plans_request_at: null, today: null });
       renderSuggest(); $("sg-msg").textContent = ag("sg_done");
     });
   }
@@ -1487,6 +1497,7 @@ if ($("admin-login")) {
       extraAttention(c, add);
       if (!isPaid(c)) { if (c.pay_status === "pending" && c.receipt_path) add(2, ag("att_pay")); return; }
       if (!c.kcal) { const d = daysSince(c.created_at); add(d >= 2 ? 3 : 2, ag("att_kcal", { d })); if (healthFlag(c)) add(3, ag("att_health")); return; }
+      if ((c.plans || []).length < 7 && c.plans_request_at) { add(3, t("att_rq")); return; }
       if ((c.plans || []).length < 7) { const d = daysSince(c.created_at); if (d >= 3) add(2, ag("att_days", { d })); return; }
       if (!c.plans_approved) { add(3, t("att_approve")); return; }
       const la = lastActive(c);

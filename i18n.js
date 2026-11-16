@@ -486,3 +486,15 @@ Object.assign(I18N.ar, {
   ps_ios: "في الآيفون: اضغط زر المشاركة ← إضافة إلى الشاشة الرئيسية، افتح التطبيق من هناك، وبعدين فعّل الإشعارات من هنا.",
   ps_unsupported: "هذا المتصفح ما يدعم إشعارات الجوال. بتشوفها هنا داخل التطبيق.", ps_error: "ما قدرنا نفعّل الإشعارات. جرّب مرة ثانية."
 });
+
+// ===== Ask the dietitian to build the 7 days =====
+Object.assign(I18N.en, {
+  rq_text: "Don't want to build your days yourself? Your dietitian can make them for you.", rq_btn: "Let the dietitian build my days",
+  rq_pill: "Your dietitian is building your days", rq_wait: "Nojood will make your 7 days. You'll get a notification when they're ready.", rq_cancel: "I'll build them myself instead",
+  att_rq: "Asked you to build their 7 days", rq_pro: "This client asked you to build their 7 days", rq_pro_how: "Use \"Suggest calories & plans\" above, then approve — or edit the days after."
+});
+Object.assign(I18N.ar, {
+  rq_text: "ما تبي تصمم أيامك بنفسك؟ الأخصائية تقدر تصممها لك.", rq_btn: "خلّ الأخصائية تصمم أيامي",
+  rq_pill: "الأخصائية تصمم أيامك", rq_wait: "نجود بتصمم أيامك السبعة، ويوصلك إشعار أول ما تجهز.", rq_cancel: "أبي أصممها بنفسي",
+  att_rq: "طلب منك تصممين أيامه السبعة", rq_pro: "العميل طلب منك تصممين أيامه السبعة", rq_pro_how: "استخدمي \"اقترح سعرات وجداول\" فوق واعتمديها، وتقدرين تعدلين الأيام بعدين."
+});

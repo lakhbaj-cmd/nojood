@@ -159,6 +159,11 @@
           <p class="muted" id="c-range" style="margin:12px 0 0"></p>
           <button class="btn" id="c-add" style="margin-top:10px" data-i18n="b_add_day"></button>
         </div>
+        <div class="card ask-dietitian" style="margin-top:14px">
+          <p style="margin-top:0" data-i18n="rq_text"></p>
+          <button class="btn outline" id="rq-btn" type="button" data-i18n="rq_btn"></button>
+          <p class="error" id="rq-err"></p>
+        </div>
         <div class="card" style="margin-top:14px">
           <h3 style="margin-top:0" data-i18n="b_your_days"></h3>
           <ul class="meal-list chosen-days" id="b-chosen"></ul>
@@ -169,6 +174,13 @@
       </div>
 
       <!-- B2: 7 days sent, waiting for the dietitian to approve -->
+      <!-- B1: asked the dietitian to build the 7 days -->
+      <div class="card" id="v-req-wait" hidden style="margin-top:14px">
+        <span class="status-pill" data-i18n="rq_pill"></span>
+        <p class="note" data-i18n="rq_wait"></p>
+        <button class="link-btn" id="rq-cancel" type="button" data-i18n="rq_cancel"></button>
+      </div>
+
       <div class="card" id="v-plans-wait" hidden style="margin-top:14px">
         <span class="status-pill" data-i18n="ap_pill"></span>
         <p class="note" data-i18n="ap_text"></p>
