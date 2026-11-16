@@ -40,7 +40,7 @@ const I18N = {
     pk_choose: "Choose this package",
 
     about_title: "About your dietitian",
-    about_text: "Nojood is a qualified dietitian who helps clients lose weight, gain weight, or simply eat healthier without giving up the food they love. Every plan is made by hand for one person, not copied from a template.",
+    about_text: "Nojood is a dietitian who helps her clients lose or gain weight and improve their eating habits without giving up the foods they love. Every plan is designed especially for one person, based on their needs.",
 
     footer_note: "Your calories and plan are set by your dietitian. This site does not replace medical advice.",
 
@@ -239,7 +239,7 @@ const I18N = {
     pk_choose: "اختر هذه الباقة",
 
     about_title: "عن أخصائية التغذية",
-    about_text: "نجود أخصائية تغذية تساعد عملاءها في نزول الوزن أو زيادته أو الأكل الصحي بدون ما يتركون الأكل اللي يحبونه. كل خطة تنسوّى لشخص واحد، مو منسوخة من قالب.",
+    about_text: "نجود أخصائية تغذية تساعد عملاءها في خسارة الوزن أو زيادته، وتحسين عاداتهم الغذائية دون حرمانهم من الأطعمة التي يحبونها. كل خطة تُصمَّم خصيصًا لشخص واحد بناءً على احتياجاته.",
 
     footer_note: "سعراتك وخطتك تحددها الأخصائية. الموقع لا يغني عن الاستشارة الطبية.",
 
