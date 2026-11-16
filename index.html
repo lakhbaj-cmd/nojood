@@ -3,12 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <link rel="manifest" href="manifest.webmanifest">
+  <!-- app name follows the phone's language: Arabic phones "الأخصائية نجود", others "Dietitian Njood" -->
+  <script>
+    (function () {
+      var en = !/^ar/i.test(navigator.language || "ar");
+      document.write('<link rel="manifest" href="' + (en ? "manifest-en.webmanifest" : "manifest.webmanifest") + '">' +
+        '<meta name="apple-mobile-web-app-title" content="' + (en ? "Dietitian Njood" : "الأخصائية نجود") + '">');
+    })();
+  </script>
   <meta name="theme-color" content="#2e5c38">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="نجود">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
   <title>Nojood Nutrition | نجود للتغذية</title>
