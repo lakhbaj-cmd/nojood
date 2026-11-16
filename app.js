@@ -1,6 +1,6 @@
 // Mizan Nutrition — site logic (connected to the Supabase database via db.js)
 // ===== Settings: change these =====
-const WHATSAPP_NUMBER = "966545220200";   // your sister's WhatsApp, country code, no + or spaces, e.g. "9665XXXXXXXX"
+const WHATSAPP_NUMBER = "966544230408";   // your sister's WhatsApp, country code, no + or spaces, e.g. "9665XXXXXXXX"
 // Bank transfer details shown to clients on the payment step
 const BANK_NAME = "البنك الأهلي السعودي (SNB)";
 const ACCOUNT_NAME = "";   // leave empty to hide the account-holder line
@@ -604,7 +604,8 @@ if ($("login-form")) {
   $("ci-open").addEventListener("click", () => { ciForced = true; $("ci-thanks").hidden = true; renderExtras(me); $("checkin-card").scrollIntoView({ behavior: "smooth", block: "center" }); });
   $("ci-later").addEventListener("click", () => { ciForced = false; renderExtras(me); });
   $("ci-submit").addEventListener("click", async () => {
-    const weight = parseFloat($("ci-weight").value), waist = parseFloat($("ci-waist").value);
+    const weight = parseFloat($("ci-weight").value);
+    const cm = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };   // body measurements in cm (optional)
     if (!weight || weight < 30 || weight > 250) { $("ci-err").textContent = t("ci_err_weight"); return; }
     if (!ciRate) { $("ci-err").textContent = t("ci_err_rate"); return; }
     $("ci-err").textContent = "";
@@ -617,10 +618,10 @@ if ($("login-form")) {
         photo_path = me.id + "/checkin-" + Date.now() + "." + ph.ext;
         await DB.upload("receipts", photo_path, ph.blob);
       }
-      await DB.insert("checkins", { user_id: me.id, weight, waist: isNaN(waist) ? null : waist, rating: ciRate, photo_path });
+      await DB.insert("checkins", { user_id: me.id, weight, waist: cm("ci-waist"), hip: cm("ci-hip"), chest: cm("ci-chest"), arm: cm("ci-arm"), thigh: cm("ci-thigh"), rating: ciRate, photo_path });
       await loadCheckins();
       ciForced = false; ciRate = 0;
-      ["ci-weight", "ci-waist", "ci-photo"].forEach(id => { $(id).value = ""; });
+      ["ci-weight", "ci-waist", "ci-hip", "ci-chest", "ci-arm", "ci-thigh", "ci-photo"].forEach(id => { $(id).value = ""; });
       $("ci-rate").querySelectorAll("[data-rate]").forEach(x => x.classList.remove("active"));
       $("ci-thanks").hidden = false;
       render();
@@ -1516,10 +1517,10 @@ if ($("admin-login")) {
     try { (await DB.select("checkins", "select=*&order=date.asc")).forEach(x => { (CHECKINS_BY[x.user_id] = CHECKINS_BY[x.user_id] || []).push(x); }); } catch (e) {}
   }
   const PX = {
-    ar: { ci_card: "📊 التشييك الأسبوعي", ci_none: "لسا ما سجل أي تشييك.", ci_date: "التاريخ", ci_w: "الوزن", ci_waist: "الخصر", ci_rate: "صعوبة الأسبوع", ci_photo: "صورة", ci_view: "عرض",
+    ar: { ci_card: "📊 التشييك الأسبوعي", ci_none: "لسا ما سجل أي تشييك.", ci_date: "التاريخ", ci_w: "الوزن", ci_waist: "الخصر", ci_hip: "الحوض", ci_chest: "الصدر", ci_arm: "الذراع", ci_thigh: "الفخذ", ci_rate: "صعوبة الأسبوع", ci_photo: "صورة", ci_view: "عرض",
       rn_card: "🔁 الباقة والتجديد", rn_period: "الباقة من {a} إلى {b}", rn_left: "باقي {d} أيام", rn_over: "خلصت من {d} أيام", rn_req: "✋ طلب التجديد يوم {date}", rn_confirm: "أكدي التجديد (شهر جديد)", rn_sure: "متأكدة؟ بيبدأ شهر جديد ويختار أيامه السبعة من جديد", rn_done: "✓ تجدد — بدأ شهر جديد",
       att_ci_missed: "ما سجل التشييك الأسبوعي من {d} أيام", att_ci_gain: "وزنه زاد أسبوعين ورا بعض (+{w} كجم)", att_rn_req: "طلب تجديد الباقة", att_rn_soon: "باقته تخلص بعد {d} أيام", att_rn_over: "باقته خلصت وما جدد" },
-    en: { ci_card: "📊 Weekly check-in", ci_none: "No check-ins yet.", ci_date: "Date", ci_w: "Weight", ci_waist: "Waist", ci_rate: "How hard", ci_photo: "Photo", ci_view: "View",
+    en: { ci_card: "📊 Weekly check-in", ci_none: "No check-ins yet.", ci_date: "Date", ci_w: "Weight", ci_waist: "Waist", ci_hip: "Hips", ci_chest: "Chest", ci_arm: "Arm", ci_thigh: "Thigh", ci_rate: "How hard", ci_photo: "Photo", ci_view: "View",
       rn_card: "🔁 Package & renewal", rn_period: "Package from {a} to {b}", rn_left: "{d} days left", rn_over: "Ended {d} days ago", rn_req: "✋ Asked to renew on {date}", rn_confirm: "Confirm renewal (new month)", rn_sure: "Sure? A new month starts and they choose 7 new days", rn_done: "✓ Renewed — new month started",
       att_ci_missed: "Missed the weekly check-in ({d} days)", att_ci_gain: "Gained weight 2 weeks in a row (+{w} kg)", att_rn_req: "Asked to renew the package", att_rn_soon: "Package ends in {d} days", att_rn_over: "Package ended, not renewed" }
   };
@@ -1561,8 +1562,8 @@ if ($("admin-login")) {
     for (const x of list) if (x.photo_path) { try { urls[x.id] = await DB.signedUrl("receipts", x.photo_path, 3600); } catch (e) {} }
     if (openClient !== c.id) return;
     ciCard.innerHTML = "<h3 style='margin-top:0'>" + esc(px("ci_card")) + "</h3>" + (weightChartSVG(c, list) || "") +
-      (list.length ? "<div class='table-wrap'><table><tr><th>" + [px("ci_date"), px("ci_w"), px("ci_waist"), px("ci_rate"), px("ci_photo")].map(esc).join("</th><th>") + "</th></tr>" +
-        list.slice().reverse().map(x => "<tr><td>" + esc(fmtDate(x.date)) + "</td><td>" + (x.weight ?? "—") + "</td><td>" + (x.waist ?? "—") + "</td><td>" + (x.rating ? x.rating + " / 5" : "—") + "</td><td>" +
+      (list.length ? "<div class='table-wrap'><table><tr><th>" + [px("ci_date"), px("ci_w"), px("ci_waist"), px("ci_hip"), px("ci_chest"), px("ci_arm"), px("ci_thigh"), px("ci_rate"), px("ci_photo")].map(esc).join("</th><th>") + "</th></tr>" +
+        list.slice().reverse().map(x => "<tr><td>" + esc(fmtDate(x.date)) + "</td><td>" + (x.weight ?? "—") + "</td><td>" + (x.waist ?? "—") + "</td><td>" + (x.hip ?? "—") + "</td><td>" + (x.chest ?? "—") + "</td><td>" + (x.arm ?? "—") + "</td><td>" + (x.thigh ?? "—") + "</td><td>" + (x.rating ? x.rating + " / 5" : "—") + "</td><td>" +
           (urls[x.id] ? '<a href="' + esc(urls[x.id]) + '" target="_blank" rel="noopener">' + esc(px("ci_view")) + "</a>" : "—") + "</td></tr>").join("") + "</table></div>"
         : "<p class='muted'>" + esc(px("ci_none")) + "</p>");
   }

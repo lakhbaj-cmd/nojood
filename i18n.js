@@ -430,7 +430,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ===== Weekly check-in, progress, grocery list, renewal =====
 Object.assign(I18N.en, {
   ci_title: "Weekly check-in", ci_sub: "Takes 1 minute. Your dietitian uses it to follow your progress.",
-  ci_weight: "Weight (kg)", ci_waist: "Waist (cm)", ci_photo: "Progress photo (optional — only your dietitian sees it)",
+  ci_weight: "Weight (kg)", ci_waist: "Waist (cm)", ci_hip: "Hips (cm)", ci_chest: "Chest (cm)", ci_arm: "Arm (cm)", ci_thigh: "Thigh (cm)", ci_photo: "Progress photo (optional — only your dietitian sees it)",
   ci_rate: "How hard was this week?", ci_rate_hint: "1 = very easy · 5 = very hard", ci_submit: "Send check-in", ci_later: "Later",
   ci_thanks: "Thanks! Your check-in was sent ✓", ci_now: "Log a check-in now", ci_err_weight: "Please enter your weight.", ci_err_rate: "Please choose how hard the week was (1–5).",
   pg_title: "📈 Your progress", pg_empty: "Your chart shows up after your first weekly check-in.", pg_summary: "From {a} kg to {b} kg ({d} kg)",
@@ -441,7 +441,7 @@ Object.assign(I18N.en, {
 });
 Object.assign(I18N.ar, {
   ci_title: "التشييك الأسبوعي", ci_sub: "ياخذ دقيقة. الأخصائية تتابع تقدمك منه.",
-  ci_weight: "الوزن (كجم)", ci_waist: "محيط الخصر (سم)", ci_photo: "صورة للتقدم (اختياري — ما يشوفها إلا الأخصائية)",
+  ci_weight: "الوزن (كجم)", ci_waist: "محيط الخصر (سم)", ci_hip: "محيط الحوض (سم)", ci_chest: "محيط الصدر (سم)", ci_arm: "محيط الذراع (سم)", ci_thigh: "محيط الفخذ (سم)", ci_photo: "صورة للتقدم (اختياري — ما يشوفها إلا الأخصائية)",
   ci_rate: "كيف كان الأسبوع؟", ci_rate_hint: "١ = سهل جداً · ٥ = صعب جداً", ci_submit: "إرسال التشييك", ci_later: "بعدين",
   ci_thanks: "شكراً! وصل تشييكك ✓", ci_now: "سجّل تشييك الحين", ci_err_weight: "اكتب وزنك لو سمحت.", ci_err_rate: "اختر كيف كان الأسبوع (١–٥).",
   pg_title: "📈 تقدّمك", pg_empty: "الرسم يطلع بعد أول تشييك أسبوعي.", pg_summary: "من {a} كجم إلى {b} كجم ({d} كجم)",
