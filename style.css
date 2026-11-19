@@ -352,3 +352,16 @@ details p { margin: 6px 0 0; color: var(--text); }
 .bell-list li { display: flex; flex-direction: column; gap: 2px; padding: 10px 6px; border-top: 1px solid var(--line); }
 .bell-list li.unread { background: var(--green-soft); border-radius: 10px; }
 .bell-list small { font-size: .75rem; }
+
+/* Pro day calculator + sharing */
+.calc-row { margin: 8px 0; }
+.calc-ok { color: var(--green); }
+.mini-plan.incomplete { border-color: var(--accent); }
+.share-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.share-row select { flex: 1 1 120px; min-width: 0; }
+
+/* workout day = warm up, exercises, cool down */
+.wk-part { padding: 10px 0 0; border-top: 1px dashed var(--line); margin-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.wk-part-name, .wk-edit-part .wk-part-name { font-weight: 700; color: var(--green); font-size: .9rem; }
+.wk-part .wk-note { margin: 0; }
+.wk-edit-part { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; }

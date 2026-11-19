@@ -174,10 +174,10 @@ const I18N = {
     ad_need_account: "First time? Create the dietitian account", ad_refresh: "Refresh",
     ad_not_admin: "You're signed in, but this account isn't activated as the dietitian yet. Once it's activated, refresh this page.",
     pro_badge: "Pro", app_install_pro: "Install the Nojood Pro app", cd_no_sched: "Hasn't chosen a schedule yet.", cd_meals: "Meals done", cd_skipped: "Skipped", cd_last: "Last meal",
-    meal_s1: "Snack 1", b_choose: "Choose food", meal_s2: "Snack 2",
-    b_title: "Choose your 7 days for the month", b_sub: "Pick ready-made days or build your own. Recipes appear after you choose all 7.",
+    meal_s1: "Snack 1", b_choose: "Choose food", meal_s2: "Snack 2", meal_s3: "Snack 3",
+    b_title: "Choose your 7 days for the month", b_sub: "Choose breakfast, lunch and dinner for 7 days. Nojood adds your snacks and approves your days.",
     b_count: "Chosen:", tab_ready: "Ready-made days", tab_custom: "Build my own day", b_add: "Add", b_add_day: "Add this day",
-    b_custom_sub: "Choose each meal. Each list only shows food that still fits your calories.",
+    b_custom_sub: "Choose breakfast, lunch and dinner for this day.",
     b_target: "Your calories", b_total: "Day total", b_remaining: "Left", b_nothing_fits: "Nothing fits — change an earlier meal",
     b_your_days: "Your 7 days", b_empty_slot: "Empty day", b_save: "Save my 7 days", b_custom_name: "My day",
     b_no_ready: "No ready-made days match your calories yet. Build your own day instead.",
@@ -371,10 +371,10 @@ const I18N = {
     ad_need_account: "أول مرة؟ أنشئي حساب الأخصائية", ad_refresh: "تحديث",
     ad_not_admin: "سجّلتي دخول، بس الحساب لسا ما تفعّل كحساب الأخصائية. أول ما يتفعّل، حدّثي الصفحة.",
     pro_badge: "برو", app_install_pro: "حمّلي تطبيق نجود برو", cd_no_sched: "لسا ما اختار جدول.", cd_meals: "وجبات خلّصها", cd_skipped: "تخطّاها", cd_last: "آخر وجبة",
-    meal_s1: "سناك ١", b_choose: "اختر أكل", meal_s2: "سناك ٢",
-    b_title: "اختر ٧ أيام لشهرك", b_sub: "اختر من الأيام الجاهزة أو سوّ يومك بنفسك. الوصفات تظهر بعد ما تكمّل السبعة.",
+    meal_s1: "سناك ١", b_choose: "اختر أكل", meal_s2: "سناك ٢", meal_s3: "سناك ٣",
+    b_title: "اختر ٧ أيام لشهرك", b_sub: "اختر الفطور والغداء والعشاء لسبعة أيام، والأخصائية نجود تضيف السناكات وتعتمد أيامك.",
     b_count: "اخترت:", tab_ready: "أيام جاهزة", tab_custom: "سوّ يومك بنفسك", b_add: "أضف", b_add_day: "أضف هذا اليوم",
-    b_custom_sub: "اختر كل وجبة. كل قائمة تعرض بس الأكل اللي يكفي سعراتك الباقية.",
+    b_custom_sub: "اختر الفطور والغداء والعشاء لهذا اليوم.",
     b_target: "سعراتك", b_total: "مجموع اليوم", b_remaining: "باقي لك", b_nothing_fits: "ما فيه شي يكفي — غيّر وجبة قبلها",
     b_your_days: "أيامك السبعة", b_empty_slot: "يوم فاضي", b_save: "حفظ أيامي السبعة", b_custom_name: "يومي",
     b_no_ready: "ما فيه أيام جاهزة على سعراتك للحين. سوّ يومك بنفسك.",
@@ -498,3 +498,29 @@ Object.assign(I18N.ar, {
   rq_pill: "الأخصائية تصمم أيامك", rq_wait: "نجود بتصمم أيامك السبعة، ويوصلك إشعار أول ما تجهز.", rq_cancel: "أبي أصممها بنفسي",
   att_rq: "طلب منك تصممين أيامه السبعة", rq_pro: "العميل طلب منك تصممين أيامه السبعة", rq_pro_how: "استخدمي \"اقترح سعرات وجداول\" فوق واعتمديها، وتقدرين تعدلين الأيام بعدين."
 });
+
+// ===== Snack 3, calculator in Pro, sharing schedules =====
+Object.assign(I18N.en, {
+  opt_short: "optional", calc_none: "None", calc_over: "Over by", calc_total: "Day total", calc_target: "Target", calc_left: "Left",
+  sh_client: "Choose a client", sh_add: "Add to client", sh_pick: "Choose a client first.", sh_done: "Added to {name} as day {d} ✓ Approve their days when all 7 are ready.",
+  ep_needs_snacks: "needs snacks", ap_incomplete: "Some days are missing snacks. Edit them (✏️) before approving."
+});
+Object.assign(I18N.ar, {
+  opt_short: "اختياري", calc_none: "بدون", calc_over: "زايد", calc_total: "مجموع اليوم", calc_target: "السعرات المطلوبة", calc_left: "باقي",
+  sh_client: "اختاري عميل", sh_add: "أضيفيه للعميل", sh_pick: "اختاري العميل أول.", sh_done: "انضاف لـ{name} كاليوم {d} ✓ اعتمدي أيامه لما تكتمل السبعة.",
+  ep_needs_snacks: "ينقصه سناكات", ap_incomplete: "فيه أيام ناقصها سناكات. عدّليها (✏️) قبل الاعتماد."
+});
+
+// ===== InBody as a photo =====
+Object.assign(I18N.en, {
+  f_ib_photo: "Photo of your InBody report", err_ib_photo: "Add a photo of your InBody report, or choose Without InBody.", ib_report: "Report", ib_view: "View",
+  ib_alert_text: "Your dietitian asked you to do an InBody test. Do it at any clinic or gym with an InBody device, then send a photo of the report here."
+});
+Object.assign(I18N.ar, {
+  f_ib_photo: "صورة تقرير الـ InBody", err_ib_photo: "أضف صورة تقرير الـ InBody، أو اختر بدون InBody.", ib_report: "التقرير", ib_view: "عرض",
+  ib_alert_text: "الأخصائية طلبت منك تسوي فحص InBody. سوّه في أي عيادة أو نادي فيه جهاز InBody، وبعدها أرسل صورة التقرير هنا."
+});
+
+// ===== 3 workout links per day =====
+Object.assign(I18N.en, { wk_warm: "Warm up", wk_main: "Exercises", wk_cool: "Cool down", ad_wk_note: "Note (shows above the link)" });
+Object.assign(I18N.ar, { wk_warm: "الإحماء", wk_main: "التمارين", wk_cool: "التهدئة", ad_wk_note: "ملاحظة (تطلع فوق الرابط)" });

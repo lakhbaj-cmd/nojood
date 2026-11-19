@@ -60,11 +60,7 @@
       <div class="card ib-alert" id="ib-alert" hidden>
         <h3 style="margin-top:0">📋 <span data-i18n="ib_alert_title"></span></h3>
         <p data-i18n="ib_alert_text"></p>
-        <div class="form-grid">
-          <div class="field"><label for="ib-weight" data-i18n="ib_weight"></label><input id="ib-weight" type="number" step="0.1"></div>
-          <div class="field"><label for="ib-fat" data-i18n="ib_fat"></label><input id="ib-fat" type="number" step="0.1"></div>
-          <div class="field"><label for="ib-muscle" data-i18n="ib_muscle"></label><input id="ib-muscle" type="number" step="0.1"></div>
-        </div>
+        <div class="field"><label for="ib-photo" data-i18n="f_ib_photo"></label><input id="ib-photo" type="file" accept="image/*,application/pdf"></div>
         <p class="error" id="ib-err"></p>
         <button class="btn" id="ib-submit" style="margin-top:12px" data-i18n="ib_submit"></button>
       </div>
@@ -149,14 +145,7 @@
         </div>
         <div id="b-custom" class="card" style="margin-top:14px">
           <p class="muted" style="margin-top:0" data-i18n="b_custom_sub"></p>
-          <p class="note" style="margin-top:0" data-i18n="b_range_note"></p>
-          <div class="kcal-row">
-            <div><span class="muted small-label" data-i18n="b_target"></span><b id="c-target"></b></div>
-            <div><span class="muted small-label" data-i18n="b_total"></span><b id="c-total"></b></div>
-            <div><span class="muted small-label" data-i18n="b_remaining"></span><b id="c-left"></b></div>
-          </div>
           <div class="form-grid" id="c-slots" style="margin-top:12px"></div>
-          <p class="muted" id="c-range" style="margin:12px 0 0"></p>
           <button class="btn" id="c-add" style="margin-top:10px" data-i18n="b_add_day"></button>
         </div>
         <div class="card ask-dietitian" style="margin-top:14px">
@@ -210,7 +199,7 @@
           <h3 id="p-sched" style="margin:0 0 8px"></h3>
           <div class="progress-top">
             <div><p class="muted small-label" data-i18n="pt_meals_done"></p><p class="stat"><bdi dir="ltr"><span id="p-done"></span> / <span id="p-total"></span></bdi></p></div>
-            <div><p class="muted small-label" data-i18n="pt_today_kcal"></p><p class="stat"><bdi dir="ltr"><span id="p-kcal"></span> / <span id="p-target"></span></bdi></p></div>
+
             <div><p class="muted small-label" data-i18n="t_days_followed"></p><p class="stat" id="p-days"></p></div>
           </div>
           <div class="bar"><div class="bar-fill" id="p-bar"></div></div>
@@ -223,7 +212,7 @@
           <p class="eyebrow" data-i18n="pt_next"></p>
           <p class="meal-type" id="n-type"></p>
           <h3 id="n-name"></h3>
-          <p class="meal-meta"><b id="n-kcal"></b> <span data-i18n="kcal_short"></span> · <span id="n-protein"></span> <span data-i18n="protein_short"></span> <span id="n-portion"></span></p>
+
           <details open><summary data-i18n="pt_ingredients"></summary><p id="n-ing"></p></details>
           <details><summary data-i18n="pt_how"></summary><p id="n-steps"></p></details>
           <div class="btn-row" style="justify-content:flex-start;margin-top:14px">

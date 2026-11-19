@@ -74,14 +74,13 @@
           <p class="muted" style="margin-top:0" data-i18n="ad_one_day"></p>
           <div class="form-grid">
             <div class="field" hidden><label for="s-name" data-i18n="ad_sched_name"></label><input id="s-name"></div>
-            <div class="field"><label for="s-kcal" data-i18n="ad_sched_kcal"></label><input id="s-kcal" type="number" min="800" max="4000" step="50" value="1300"></div>
+            <div class="field"><label for="s-kcal" data-i18n="ad_sched_kcal"></label><input id="s-kcal" type="number" min="800" max="4000" step="10" placeholder="—"></div>
           </div>
           <div class="btn-row" style="justify-content:flex-start;margin:14px 0">
             <button class="btn outline small" id="autofill-btn" data-i18n="ad_autofill"></button>
           </div>
           <div class="day-box"><div class="day-head"><b data-i18n="ad_day_total"></b><span class="muted" id="day-total"></span></div>
             <div class="form-grid" id="day-editor"></div></div>
-          <p class="muted" style="font-size:.85rem" data-i18n="ad_portion_note"></p>
           <p class="error" id="sched-err"></p>
           <div class="actions">
             <button class="btn outline" id="cancel-sched" data-i18n="ad_cancel"></button>

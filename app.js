@@ -76,8 +76,12 @@ function copyText(text, btn) {
 
 // ===== Recipes & day plans (cached after loading) =====
 // A day has 5 meals: breakfast, snack 1, lunch, snack 2, dinner
-const SLOTS = ["b", "s1", "l", "s2", "d"];
-const SLOT_MEAL = { b: "b", s1: "s", l: "l", s2: "s", d: "d" };   // which recipe type fits each slot
+const SLOTS = ["b", "s1", "l", "s2", "d", "s3"];   // s3 = optional third snack
+const SLOT_MEAL = { b: "b", s1: "s", l: "l", s2: "s", d: "d", s3: "s" };   // which recipe type fits each slot
+const MAIN_SLOTS = ["b", "l", "d"];                  // what clients choose themselves
+const NEEDED_SLOTS = ["b", "s1", "l", "s2", "d"];    // a complete day (snack 3 is optional)
+const dayComplete = meals => !!meals && NEEDED_SLOTS.every(k => meals[k]);
+const daySlots = meals => SLOTS.filter(k => meals && meals[k]);
 let SCHEDULES = [];      // ready one-day plans made by the dietitian
 let CUSTOM_RECIPES = [];
 async function loadSchedules() { SCHEDULES = await DB.select("schedules", "select=*&order=kcal.asc"); return SCHEDULES; }
@@ -88,15 +92,12 @@ function rText(r, field) { const v = r[field]; return v == null ? "" : typeof v 
 function recipesFor(slot) { return allRecipes().filter(r => r.meal === SLOT_MEAL[slot]); }
 function slotLabel(slot) { return t("meal_" + slot); }
 // plans/schedules are named only by their calories (e.g. "1300 سعرة")
+const dayTitle = i => t("pt_day") + " " + (i + 1);   // what clients see instead of calories
 function planTitle(p) { return (p && p.kcal ? String(p.kcal) : "—") + " " + t("kcal_short"); }
 function tplMeals(s) { return (s.days && s.days[0]) || {}; }
 function mealsTotal(meals) { return SLOTS.reduce((sum, k) => sum + ((recipeById(meals[k]) || {}).kcal || 0), 0); }
-// Portion factor so the day reaches the calorie target (rounded to ¼, between ½ and 2)
-function portionFactor(target, meals) {
-  const total = mealsTotal(meals);
-  if (!total || !target) return 1;
-  return Math.min(2, Math.max(0.5, Math.round((target / total) * 4) / 4));
-}
+// Portions are no longer scaled: a day's calories are simply the sum of its recipes
+function portionFactor() { return 1; }
 function matchingTemplates(kcal) {
   return SCHEDULES.filter(s => Math.abs(s.kcal - kcal) <= MATCH_RANGE).sort((a, b) => Math.abs(a.kcal - kcal) - Math.abs(b.kcal - kcal));
 }
@@ -114,7 +115,8 @@ function archiveDay(c) {
     if (c.today.off) history.push({ date: c.today.date, off: true });
     else {
       const pr = c.today.progress || {};
-      history.push({ date: c.today.date, plan: c.today.plan, done: Object.values(pr).filter(v => v === "done").length, skipped: Object.values(pr).filter(v => v === "skip").length });
+      const pl = (c.plans || [])[c.today.plan];
+      history.push({ date: c.today.date, plan: c.today.plan, done: Object.values(pr).filter(v => v === "done").length, skipped: Object.values(pr).filter(v => v === "skip").length, total: pl ? daySlots(pl.meals).length : 5 });
     }
   }
   return history.slice(-60);
@@ -125,7 +127,7 @@ function dayState(c) {
   if (!plan) return null;
   const prog = today.progress || {};
   const factor = portionFactor(plan.kcal, plan.meals);
-  const slots = SLOTS.map(k => ({ k, recipe: recipeById(plan.meals[k]), status: prog[k] }));
+  const slots = daySlots(plan.meals).map(k => ({ k, recipe: recipeById(plan.meals[k]), status: prog[k] }));
   const next = slots.find(s => !s.status);
   const done = slots.filter(s => s.status === "done").length;
   const handled = slots.filter(s => s.status).length;
@@ -136,12 +138,36 @@ function dayState(c) {
 // A custom day may be up to this many kcal above or below the client's target
 const DAY_RANGE = 50;
 // 5 workout days: [{ link, note }] — old single link becomes day 1
+// 5 workout days; each day = 3 parts in order: warm up, exercises, cool down — each a link + Nojood's note
+const WK_PARTS = ["wk_warm", "wk_main", "wk_cool"];
 function workoutDays(c) {
   const ok = v => v && /^https?:\/\//i.test(v) ? v : "";
   let d = Array.isArray(c.workout_days) ? c.workout_days.slice(0, 5) : [];
   if (!d.length && (c.workout_upper || c.workout_lower || c.workout_link)) d = [c.workout_upper, c.workout_lower, c.workout_link].filter(Boolean).map(l => ({ link: l, note: "" }));
-  while (d.length < 5) d.push({ link: "", note: "" });
-  return d.map(x => ({ link: ok(x && x.link), note: (x && x.note) || "" }));
+  while (d.length < 5) d.push({});
+  return d.map(x => {
+    x = x || {};
+    const parts = Array.isArray(x.parts) ? x.parts : [{}, { link: x.link, note: x.note }, {}];   // an old single link = the exercises
+    return { parts: [0, 1, 2].map(j => ({ link: ok(parts[j] && parts[j].link), note: (parts[j] && parts[j].note) || "" })) };
+  });
+}
+const wkDayUsed = d => d.parts.some(p => p.link || p.note);
+
+// Day calculator used in Nojood Pro: total of the chosen recipes vs. a target (target optional)
+function calcHTML(total, target) {
+  const left = target ? target - total : null;
+  return '<div class="kcal-row calc-row"><div><span class="muted small-label">' + esc(t("calc_total")) + "</span><b>" + total + "</b></div>" +
+    (target ? '<div><span class="muted small-label">' + esc(t("calc_target")) + "</span><b>" + target + "</b></div>" +
+      '<div><span class="muted small-label">' + esc(t(left >= 0 ? "calc_left" : "calc_over")) + '</span><b class="' + (Math.abs(left) <= DAY_RANGE ? "calc-ok" : "") + '">' + Math.abs(left) + "</b></div>" : "") + "</div>";
+}
+// options for one slot: only recipes that still fit the target (current choice always kept); no target = all
+function slotOptions(k, meals, target) {
+  const others = NEEDED_SLOTS.concat(meals.s3 ? ["s3"] : []).filter(x => x !== k);
+  const chosen = others.reduce((a, x) => a + ((recipeById(meals[x]) || {}).kcal || 0), 0);
+  const minOf = x => Math.min(...recipesFor(x).map(r => r.kcal), Infinity);
+  const minRest = others.filter(x => !meals[x] && x !== "s3").reduce((a, x) => a + (isFinite(minOf(x)) ? minOf(x) : 0), 0);
+  return recipesFor(k).filter(r => !target || r.id === meals[k] || r.kcal + chosen + minRest <= target + DAY_RANGE)
+    .map(r => '<option value="' + esc(r.id) + '"' + (meals[k] === r.id ? " selected" : "") + ">" + esc(rText(r, "name")) + " (" + r.kcal + ")</option>").join("");
 }
 
 // ===== Package period (1 month) =====
@@ -392,8 +418,8 @@ if ($("info-form")) {
     if (bad) { $("err-1").textContent = t("err_fill"); return; }
     const withIb = document.querySelector("input[name=ibmode]:checked").value === "with";
     const num = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
-    ibData = withIb ? { fat: num("f-ib-fat"), muscle: num("f-ib-muscle"), bmr: num("f-ib-bmr") } : null;
-    if (withIb && !ibData.fat && !ibData.bmr) { $("err-1").textContent = t("err_ib_fat"); return; }
+    ibData = withIb ? { file: $("f-ib-photo").files[0] || null } : null;   // InBody = a photo of the report
+    if (withIb && !ibData.file) { $("err-1").textContent = t("err_ib_photo"); return; }
     $("err-1").textContent = "";
     client = {
       name: $("f-name").value.trim(), phone: $("f-phone").value.trim(), email: $("f-email").value.trim().toLowerCase(),
@@ -441,7 +467,13 @@ if ($("info-form")) {
       }
       const existing = await DB.select("profiles", "select=id&id=eq." + user.id);
       if (existing.length) await DB.update("profiles", user.id, row); else await DB.insert("profiles", row);
-      if (ibData) await DB.insert("inbody", { user_id: user.id, weight: client.weight, fat: ibData.fat, muscle: ibData.muscle, bmr: ibData.bmr });
+      if (ibData && ibData.file) {
+        try {
+          const ph = await readReceipt(ibData.file), path = user.id + "/inbody-" + Date.now() + "." + ph.ext;
+          await DB.upload("receipts", path, ph.blob);
+          await DB.insert("inbody", { user_id: user.id, weight: client.weight, photo_path: path });
+        } catch (e) {}   // the account is made even if the photo fails; they can send it later
+      }
       markSignedIn(true);
       show(5);
     } catch (e) {
@@ -529,7 +561,7 @@ if ($("login-form")) {
     $("v-build").hidden = !(paid && c.kcal && plans.length < 7 && !asked);
     const off = paid && plans.length >= 7 && approved && isOffToday(c);
     $("v-plans-wait").hidden = !(paid && plans.length >= 7 && !approved);
-    if (!$("v-plans-wait").hidden) $("ap-days").innerHTML = plans.slice(0, 7).map((p, i) => '<li><span class="day-num">' + (i + 1) + "</span><span class='grow'><b>" + esc(planTitle(p)) + "</b><br><small class='muted'>" + SLOTS.map(k => { const r = recipeById(p.meals[k]); return r ? esc(rText(r, "name")) : ""; }).filter(Boolean).join(" · ") + "</small></span></li>").join("");
+    if (!$("v-plans-wait").hidden) $("ap-days").innerHTML = plans.slice(0, 7).map((p, i) => '<li><span class="day-num">' + (i + 1) + "</span><span class='grow'><b>" + esc(dayTitle(i)) + "</b><br><small class='muted'>" + SLOTS.map(k => { const r = recipeById(p.meals[k]); return r ? esc(rText(r, "name")) : ""; }).filter(Boolean).join(" · ") + "</small></span></li>").join("");
     $("v-off").hidden = !off;
     $("v-pick").hidden = !(paid && plans.length >= 7 && approved && !st && !off);
     $("v-plan").hidden = !(paid && st);
@@ -652,10 +684,11 @@ if ($("login-form")) {
   function renderWorkout(c) {
     // 5 workout days, each with a link and a note from Nojood
     const days = workoutDays(c);
-    $("wk-days").innerHTML = days.map((d, i) => (d.link || d.note) ? '<div class="wk-day"><div class="wk-day-head"><b>' + esc(t("wk_day")) + " " + (i + 1) + "</b>" +
-      (d.link ? '<a class="btn small" href="' + esc(d.link) + '" target="_blank" rel="noopener">' + esc(t("wk_open_day")) + "</a>" : "") + "</div>" +
-      (d.note ? '<p class="wk-note">📝 ' + esc(d.note) + "</p>" : "") + "</div>" : "").join("");
-    $("wk-none").hidden = days.some(d => d.link || d.note);
+    $("wk-days").innerHTML = days.map((d, i) => wkDayUsed(d) ? '<div class="wk-day"><b>' + esc(t("wk_day")) + " " + (i + 1) + "</b>" +
+      d.parts.map((pt, j) => (pt.link || pt.note) ? '<div class="wk-part"><span class="wk-part-name">' + esc(t(WK_PARTS[j])) + "</span>" +
+        (pt.note ? '<p class="wk-note">' + esc(pt.note) + "</p>" : "") +
+        (pt.link ? '<a class="btn small" href="' + esc(pt.link) + '" target="_blank" rel="noopener">' + esc(t("wk_open_day")) + "</a>" : "") + "</div>" : "").join("") + "</div>" : "").join("");
+    $("wk-none").hidden = days.some(wkDayUsed);
   }
 
   // ---------- Step 1: choose 7 days ----------
@@ -689,7 +722,7 @@ if ($("login-form")) {
     for (let i = 0; i < 7; i++) {
       const p = draft[i];
       rows += '<li class="' + (p ? "" : "empty") + '"><span class="day-num">' + (i + 1) + "</span><span class='grow'>" +
-        (p ? "<b>" + esc(planTitle(p)) + "</b><br><small class='muted'>" + SLOTS.map(k => { const r = recipeById(p.meals[k]); return r ? esc(rText(r, "name")) : ""; }).filter(Boolean).join(" · ") + "</small>" : "<span class='muted'>" + esc(t("b_empty_slot")) + "</span>") +
+        (p ? "<b>" + esc(dayTitle(i)) + "</b><br><small class='muted'>" + SLOTS.map(k => { const r = recipeById(p.meals[k]); return r ? esc(rText(r, "name")) : ""; }).filter(Boolean).join(" · ") + "</small>" : "<span class='muted'>" + esc(t("b_empty_slot")) + "</span>") +
         "</span>" + (p ? '<button class="install-close" data-rm="' + i + '" aria-label="Remove">×</button>' : "") + "</li>";
     }
     $("b-chosen").innerHTML = rows;
@@ -697,35 +730,19 @@ if ($("login-form")) {
     $("b-save").disabled = !full;
   }
 
-  // build-your-own: each list only shows food that still fits the calories
+  // build-your-own: clients pick breakfast, lunch and dinner (names only, no calories); Nojood adds the snacks
   function renderCustom(c) {
-    const target = c.kcal || 0;
-    const chosenSum = SLOTS.reduce((s, k) => s + ((recipeById(custom[k]) || {}).kcal || 0), 0);
-    const minOf = k => Math.min(...recipesFor(k).map(r => r.kcal), Infinity);
-    $("c-target").textContent = target.toLocaleString();
-    $("c-total").textContent = chosenSum.toLocaleString();
-    $("c-left").textContent = Math.max(0, target - chosenSum).toLocaleString();
-    $("c-slots").innerHTML = SLOTS.map(k => {
-      const others = SLOTS.filter(x => x !== k);
-      const othersChosen = others.reduce((s, x) => s + ((recipeById(custom[x]) || {}).kcal || 0), 0);
-      const othersMin = others.filter(x => !custom[x]).reduce((s, x) => s + (isFinite(minOf(x)) ? minOf(x) : 0), 0);
-      const fits = recipesFor(k).filter(r => r.kcal + othersChosen + othersMin <= target + DAY_RANGE);
-      const opts = fits.map(r => '<option value="' + esc(r.id) + '"' + (custom[k] === r.id ? " selected" : "") + ">" + esc(rText(r, "name")) + " (" + r.kcal + ")</option>").join("");
-      return '<div class="field"><label for="cs-' + k + '">' + esc(slotLabel(k)) + '</label><select id="cs-' + k + '" data-cslot="' + k + '"><option value="">' + esc(fits.length ? t("b_choose") : t("b_nothing_fits")) + "</option>" + opts + "</select></div>";
+    $("c-slots").innerHTML = MAIN_SLOTS.map(k => {
+      const opts = recipesFor(k).map(r => '<option value="' + esc(r.id) + '"' + (custom[k] === r.id ? " selected" : "") + ">" + esc(rText(r, "name")) + "</option>").join("");
+      return '<div class="field"><label for="cs-' + k + '">' + esc(slotLabel(k)) + '</label><select id="cs-' + k + '" data-cslot="' + k + '"><option value="">' + esc(t("b_choose")) + "</option>" + opts + "</select></div>";
     }).join("");
-    document.querySelectorAll("[data-cslot]").forEach(s => s.addEventListener("change", () => { custom[s.dataset.cslot] = s.value; renderCustom(c); }));
-    const complete = SLOTS.every(k => custom[k]);
-    const diff = chosenSum - target, inRange = Math.abs(diff) <= DAY_RANGE;
-    $("c-range").textContent = !complete ? "" : inRange ? t("b_range_ok") : diff > 0 ? t("b_range_more").replace("{d}", diff - DAY_RANGE) : t("b_range_less").replace("{d}", -diff - DAY_RANGE);
-    $("c-range").className = complete ? (inRange ? "note" : "error") : "muted";
-    $("c-add").disabled = !complete || !inRange || draft.length >= 7;
+    document.querySelectorAll("[data-cslot]").forEach(sel => sel.addEventListener("change", () => { custom[sel.dataset.cslot] = sel.value; renderCustom(c); }));
+    $("c-add").disabled = !MAIN_SLOTS.every(k => custom[k]) || draft.length >= 7;
   }
   $("c-add").addEventListener("click", () => {
-    if (draft.length >= 7 || !SLOTS.every(k => custom[k])) return;
-    const sum = SLOTS.reduce((a, k) => a + ((recipeById(custom[k]) || {}).kcal || 0), 0);
-    if (Math.abs(sum - me.kcal) > DAY_RANGE) return;
-    const n = draft.filter(p => p.source === "custom").length + 1;
-    draft.push({ name: String(me.kcal), kcal: me.kcal, meals: { ...custom }, source: "custom", total: sum });
+    if (draft.length >= 7 || !MAIN_SLOTS.every(k => custom[k])) return;
+    const meals = {}; MAIN_SLOTS.forEach(k => { meals[k] = custom[k]; });
+    draft.push({ name: "", kcal: me.kcal, meals, source: "custom" });
     custom = {}; saveDraft(); renderBuild(me);
   });
   document.querySelectorAll("[data-btab]").forEach(b => b.addEventListener("click", () => { tab = b.dataset.btab; renderBuild(me); }));
@@ -746,7 +763,7 @@ if ($("login-form")) {
   // ---------- Step 2: every day, pick one of the 7 ----------
   function renderPick(c) {
     $("pick-list").innerHTML = c.plans.slice(0, 7).map((p, i) =>
-      '<div class="card sched-card"><p class="eyebrow">' + esc(t("pt_day")) + " " + (i + 1) + "</p><h3>" + esc(planTitle(p)) + "</h3>" +
+      '<div class="card sched-card"><h3>' + esc(dayTitle(i)) + "</h3>" +
       mealNamesHTML(p.meals) + '<button class="btn small" data-pickday="' + i + '">' + esc(t("p_start")) + "</button></div>").join("");
     document.querySelectorAll("[data-pickday]").forEach(b => b.addEventListener("click", async () => {
       busy(b, true);
@@ -757,13 +774,12 @@ if ($("login-form")) {
 
   // ---------- Step 3: today's meals one by one ----------
   function renderToday(c, st) {
-    $("p-sched").textContent = planTitle(st.plan);
+    $("p-sched").textContent = dayTitle(st.today.plan);
     $("p-done").textContent = st.done;
-    $("p-total").textContent = SLOTS.length;
-    $("p-kcal").textContent = st.kcal.toLocaleString();
-    $("p-target").textContent = st.plan.kcal.toLocaleString();
+    $("p-total").textContent = st.slots.length;
+
     $("p-days").textContent = (c.history || []).filter(h => h.done > 0).length + (st.done > 0 ? 1 : 0);
-    $("p-bar").style.width = Math.round((st.handled / SLOTS.length) * 100) + "%";
+    $("p-bar").style.width = Math.round((st.handled / st.slots.length) * 100) + "%";
     $("change-day").hidden = st.handled > 0;
     $("next-card").hidden = !st.next;
     $("finished-card").hidden = !!st.next;
@@ -772,9 +788,7 @@ if ($("login-form")) {
       const r = st.next.recipe;
       $("n-type").textContent = slotLabel(st.next.k);
       $("n-name").textContent = rText(r, "name");
-      $("n-kcal").textContent = Math.round(r.kcal * st.factor);
-      $("n-protein").textContent = Math.round((r.protein || 0) * st.factor);
-      $("n-portion").textContent = st.factor !== 1 ? "· " + t("pt_portion") + " ×" + st.factor : "";
+
       $("n-ing").textContent = rText(r, "ing");
       $("n-steps").textContent = rText(r, "steps");
     }
@@ -809,10 +823,14 @@ if ($("login-form")) {
   $("off-cancel").addEventListener("click", async () => { await updateMe({ today: null }); });
 
   $("ib-submit").addEventListener("click", async () => {
-    const num = id => { const v = parseFloat($(id).value); return isNaN(v) ? null : v; };
+    const file = $("ib-photo").files[0];
+    if (!file) { $("ib-err").textContent = t("err_ib_photo"); return; }
+    $("ib-err").textContent = "";
     busy($("ib-submit"), true);
     try {
-      await DB.insert("inbody", { user_id: me.id, weight: num("ib-weight"), fat: num("ib-fat"), muscle: num("ib-muscle") });
+      const ph = await readReceipt(file), path = me.id + "/inbody-" + Date.now() + "." + ph.ext;
+      await DB.upload("receipts", path, ph.blob);
+      await DB.insert("inbody", { user_id: me.id, photo_path: path });
       await updateMe({ inbody_requested: false });
       $("ib-thanks").hidden = false;
     } catch (e) { $("ib-err").textContent = friendlyError(e); } finally { busy($("ib-submit"), false); }
@@ -847,17 +865,17 @@ if ($("login-form")) {
     ar: {
       title: "مساعد نجود", open: "اسأل المساعد", ph: "اكتب سؤالك…", send: "إرسال",
       hi: "هلا! أنا مساعد نجود 🌿 أقدر أقولك وجبتك الجاية، طريقة الوصفة، المكونات، وكم سعرة باقي لك اليوم.",
-      chips: ["وش وجبتي الجاية؟", "كيف أسويها؟", "كم سعرة باقي؟", "جدول اليوم"],
+      chips: ["وش وجبتي الجاية؟", "كيف أسويها؟", "وش المكونات؟", "جدول اليوم"],
       approve_wait: "أيامك السبعة وصلت للأخصائية وتنتظر اعتمادها. أول ما تعتمدها تقدر تبدأ.",
       no_plan: "لسا ما اخترت جدول اليوم. اختر واحد من أيامك السبعة فوق وبعدين اسألني.",
       no_days: "لسا ما اخترت أيامك السبعة. اختارها فوق وبعدين أقدر أساعدك.",
       wait: "الأخصائية لسا ما حددت سعراتك. أول ما تحددها يطلع لك جدولك.",
       off: "اليوم يوم أوف 🌿 ما فيه جدول. استمتع وارجع بكرة!",
       done: "خلّصت كل وجبات اليوم 🎉 تقدر تضغط \"ابدأ الجدول التالي\" لو تبي يوم جديد.",
-      next: "وجبتك الجاية: {slot} — {name} ({kcal} سعرة).",
+      next: "وجبتك الجاية: {slot} — {name}.",
       how: "طريقة {name}: {steps}",
       ing: "مكونات {name}: {ing}",
-      kcal: "أكلت {eaten} من {target} سعرة اليوم. باقي لك {left} سعرة.",
+      kcal: "سعراتك تتابعها الأخصائية نجود، وأيامك مصممة عليها. أنت بس امشِ على وجباتك 👍",
       today: "جدول اليوم ({plan}):",
       workout: "جداول تمارينك:{link}", workout_none: "الأخصائية لسا ما أضافت جدول تمارين.", workout_basic: "باقتك ما فيها جدول تمارين. باقة تغذية + تمارين فيها جدول.",
       offday: "لو تبي اليوم يوم أوف اضغط زر \"🌿 يوم أوف\" فوق الوجبات.",
@@ -869,17 +887,17 @@ if ($("login-form")) {
     en: {
       title: "Nojood helper", open: "Ask the helper", ph: "Type your question…", send: "Send",
       hi: "Hi! I'm the Nojood helper 🌿 I can tell you your next meal, how to make it, the ingredients, and how many calories you have left today.",
-      chips: ["What's my next meal?", "How do I make it?", "Calories left?", "Today's plan"],
+      chips: ["What's my next meal?", "How do I make it?", "Ingredients?", "Today's plan"],
       approve_wait: "Your 7 days were sent to your dietitian and are waiting for her approval. You can start as soon as she approves them.",
       no_plan: "You haven't picked today's plan yet. Pick one of your 7 days above, then ask me.",
       no_days: "You haven't chosen your 7 days yet. Choose them above, then I can help.",
       wait: "Your dietitian hasn't set your calories yet. Your plan shows up as soon as she does.",
       off: "Today is an off day 🌿 No plan today. Enjoy and come back tomorrow!",
       done: "You finished all of today's meals 🎉 Tap \"Start the next plan\" if you want a new day.",
-      next: "Your next meal: {slot} — {name} ({kcal} kcal).",
+      next: "Your next meal: {slot} — {name}.",
       how: "How to make {name}: {steps}",
       ing: "Ingredients for {name}: {ing}",
-      kcal: "You've eaten {eaten} of {target} kcal today. {left} kcal left.",
+      kcal: "Your dietitian Nojood takes care of your calories — your days are built on them. Just follow your meals 👍",
       today: "Today's plan ({plan}):",
       workout: "Your workout plans:{link}", workout_none: "Your dietitian hasn't added a workout plan yet.", workout_basic: "Your package doesn't include a workout plan. The Nutrition + Workout package does.",
       offday: "If you want today off, tap the \"🌿 Off day\" button above your meals.",
@@ -918,8 +936,8 @@ if ($("login-form")) {
     if (has(q, W.change) && has(q, W.kcal.concat(["جدول", "plan"]))) return ct("change");
     if (has(q, W.workout)) {
       if (!(PACKAGES[c.package] && PACKAGES[c.package].workout)) return ct("workout_basic");
-      const wl = workoutDays(c).map((d, i) => [t("wk_day") + " " + (i + 1), d]).filter(x => x[1].link || x[1].note);
-      return wl.length ? ct("workout", { link: "\n" + wl.map(x => x[0] + ": " + (x[1].link || "") + (x[1].note ? "\n📝 " + x[1].note : "")).join("\n") }) : ct("workout_none");
+      const wl = workoutDays(c).map((d, i) => [t("wk_day") + " " + (i + 1), d]).filter(x => wkDayUsed(x[1]));
+      return wl.length ? ct("workout", { link: "\n" + wl.map(x => x[0] + ":\n" + x[1].parts.map((pt, j) => (pt.link || pt.note) ? "• " + t(WK_PARTS[j]) + (pt.note ? " — " + pt.note : "") + (pt.link ? "\n  " + pt.link : "") : "").filter(Boolean).join("\n")).join("\n\n") }) : ct("workout_none");
     }
     if (has(q, W.offday)) return isOffToday(c) ? ct("off") : ct("offday");
     if (has(q, W.skip)) return ct("skip");
@@ -937,12 +955,12 @@ if ($("login-form")) {
       const r = target.recipe; if (!r) return ct("fallback");
       return has(q, W.ing) ? ct("ing", { name: rText(r, "name"), ing: rText(r, "ing") }) : ct("how", { name: rText(r, "name"), steps: rText(r, "steps") });
     }
-    if (has(q, W.kcal)) return ct("kcal", { eaten: st.kcal, target: st.plan.kcal, left: Math.max(0, st.plan.kcal - st.kcal) });
+    if (has(q, W.kcal)) return ct("kcal");
     if (slotAsked || has(q, W.next)) {
       if (!target) return ct("done");
-      return ct("next", { slot: slotLabel(target.k), name: target.recipe ? rText(target.recipe, "name") : "—", kcal: kcalOf(target) });
+      return ct("next", { slot: slotLabel(target.k), name: target.recipe ? rText(target.recipe, "name") : "—" });
     }
-    if (has(q, W.today)) return ct("today", { plan: planTitle(st.plan) }) + "\n" + st.slots.map(s => (s.status === "done" ? "✅ " : s.status === "skip" ? "⏭️ " : "• ") + slotLabel(s.k) + ": " + (s.recipe ? rText(s.recipe, "name") : "—") + " (" + kcalOf(s) + ")").join("\n");
+    if (has(q, W.today)) return ct("today", { plan: dayTitle(st.today.plan) }) + "\n" + st.slots.map(s => (s.status === "done" ? "✅ " : s.status === "skip" ? "⏭️ " : "• ") + slotLabel(s.k) + ": " + (s.recipe ? rText(s.recipe, "name") : "—")).join("\n");
     if (has(q, W.hi)) return ct("hi");
     return null;   // didn't understand
   }
@@ -1064,10 +1082,26 @@ if ($("admin-login")) {
       const match = CLIENTS.filter(c => Math.abs((c.kcal || 0) - s.kcal) <= MATCH_RANGE).length;
       return '<div class="card sched-card"><h3>' + esc(planTitle(s)) + "</h3>" +
         mealNamesHTML(tplMeals(s)) + "<p class='muted'>" + match + " " + esc(t("ad_matching")) + "</p>" +
+        '<div class="share-row"><select data-share-client="' + esc(s.id) + '"><option value="">' + esc(t("sh_client")) + "</option>" +
+          CLIENTS.filter(c => isPaid(c)).map(c => '<option value="' + esc(c.id) + '">' + esc(c.name || c.email) + "</option>").join("") + "</select>" +
+          '<select data-share-day="' + esc(s.id) + '">' + [1, 2, 3, 4, 5, 6, 7].map(n => '<option value="' + n + '">' + esc(t("pt_day")) + " " + n + "</option>").join("") + "</select>" +
+          '<button class="btn small" data-share="' + esc(s.id) + '">' + esc(t("sh_add")) + "</button></div><p class='muted' data-share-msg='" + esc(s.id) + "'></p>" +
         '<button class="btn outline small" data-del="' + esc(s.id) + '">' + esc(t(deleteArmed === s.id ? "ad_confirm_delete" : "ad_delete")) + "</button></div>";
     }).join("");
     $("sched-list").innerHTML = '<button class="add-card" id="add-sched-btn"><span class="plus">+</span><span>' + esc(t("ad_new_sched")) + "</span></button>" + cards;
     $("add-sched-btn").addEventListener("click", openEditor);
+    document.querySelectorAll("[data-share]").forEach(b => b.addEventListener("click", async () => {
+      const id = b.dataset.share, out = document.querySelector('[data-share-msg="' + id + '"]');
+      const cid = document.querySelector('[data-share-client="' + id + '"]').value, day = +document.querySelector('[data-share-day="' + id + '"]').value;
+      if (!cid) { out.textContent = t("sh_pick"); return; }
+      const s = SCHEDULES.find(x => x.id === id), c = clientById(cid); if (!s || !c) return;
+      const plans = (c.plans || []).map(x => ({ ...x, meals: { ...x.meals } })), meals = { ...tplMeals(s) };
+      const item = { name: String(mealsTotal(meals)), kcal: c.kcal || mealsTotal(meals), meals, total: mealsTotal(meals), source: "nojood" };
+      if (day - 1 < plans.length) plans[day - 1] = item; else if (plans.length < 7) plans.push(item); else plans[6] = item;
+      busy(b, true);
+      try { await DB.update("profiles", cid, { plans, today: null }); await loadClients(); out.textContent = t("sh_done").replace("{name}", c.name || "").replace("{d}", Math.min(day, plans.length)); }
+      catch (e) { out.textContent = friendlyError(e); } finally { busy(b, false); }
+    }));
     document.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", async () => {
       if (deleteArmed !== b.dataset.del) { deleteArmed = b.dataset.del; renderSchedules(); return; }
       busy(b, true);
@@ -1076,7 +1110,7 @@ if ($("admin-login")) {
     }));
   }
   function openEditor() {
-    editing = { b: "", s1: "", l: "", s2: "", d: "" };
+    editing = { b: "", s1: "", l: "", s2: "", d: "", s3: "" };
     $("s-name").value = "";
     renderDayEditor();
     $("sched-editor").hidden = false;
@@ -1085,14 +1119,12 @@ if ($("admin-login")) {
   }
   function renderDayEditor() {
     if (!editing) return;
-    const target = +$("s-kcal").value || 0;
+    const target = +$("s-kcal").value || 0;   // optional: only for the calculator
     const total = mealsTotal(editing);
-    const f = total ? portionFactor(target, editing) : 1;
     $("day-editor").innerHTML = SLOTS.map(k => {
-      const opts = recipesFor(k).map(r => '<option value="' + esc(r.id) + '"' + (editing[k] === r.id ? " selected" : "") + ">" + esc(rText(r, "name")) + " (" + r.kcal + ")</option>").join("");
-      return '<div class="field"><label for="se-' + k + '">' + esc(slotLabel(k)) + '</label><select id="se-' + k + '" data-se="' + k + '"><option value="">' + esc(t("ad_choose")) + "</option>" + opts + "</select></div>";
+      return '<div class="field"><label for="se-' + k + '">' + esc(slotLabel(k)) + (k === "s3" ? " (" + esc(t("opt_short")) + ")" : "") + '</label><select id="se-' + k + '" data-se="' + k + '"><option value="">' + esc(k === "s3" ? t("calc_none") : t("ad_choose")) + "</option>" + slotOptions(k, editing, target) + "</select></div>";
     }).join("");
-    $("day-total").textContent = total + (total ? " → ×" + f + " = " + Math.round(total * f) : "") + " " + t("kcal_short");
+    $("day-total").innerHTML = calcHTML(total, target);
     document.querySelectorAll("[data-se]").forEach(s => s.addEventListener("change", () => { editing[s.dataset.se] = s.value; renderDayEditor(); }));
   }
   // pick recipes so the day lands close to the target
@@ -1101,7 +1133,7 @@ if ($("admin-login")) {
     let best = null, bestDiff = Infinity;
     for (let i = 0; i < 400; i++) {
       const day = {};
-      SLOTS.forEach(k => { const list = recipesFor(k); day[k] = list.length ? list[Math.floor(Math.random() * list.length)].id : ""; });
+      NEEDED_SLOTS.forEach(k => { const list = recipesFor(k); day[k] = list.length ? list[Math.floor(Math.random() * list.length)].id : ""; });
       if (day.s1 === day.s2 && recipesFor("s1").length > 1) continue;
       const diff = Math.abs(mealsTotal(day) - target);
       if (diff < bestDiff) { best = day; bestDiff = diff; }
@@ -1112,8 +1144,8 @@ if ($("admin-login")) {
   $("autofill-btn").addEventListener("click", autofill);
   $("cancel-sched").addEventListener("click", () => { editing = null; $("sched-editor").hidden = true; });
   $("save-sched").addEventListener("click", async () => {
-    const kcal = +$("s-kcal").value, name = String(kcal);
-    if (!kcal || !SLOTS.every(k => editing[k])) { $("sched-err").textContent = t("err_sched"); return; }
+    if (!dayComplete(editing)) { $("sched-err").textContent = t("err_sched"); return; }
+    const kcal = mealsTotal(editing), name = String(kcal);   // the schedule's calories = the real total
     busy($("save-sched"), true);
     try {
       await DB.insert("schedules", { name, kcal, days: [{ ...editing }] });
@@ -1153,7 +1185,7 @@ if ($("admin-login")) {
   function clientById(id) { return CLIENTS.find(c => c.id === id); }
   function todayText(c) {
     const st = (c.plans || []).length >= 7 ? dayState(c) : null;
-    return st ? st.done + " / " + SLOTS.length : isOffToday(c) ? "🌿 " + esc(t("off_title")) : "—";
+    return st ? st.done + " / " + st.slots.length : isOffToday(c) ? "🌿 " + esc(t("off_title")) : "—";
   }
   function renderClients() {
     $("no-clients").hidden = CLIENTS.length > 0;
@@ -1192,8 +1224,9 @@ if ($("admin-login")) {
     $("wa-client").textContent = "💬 " + t("ad_wa_client");
     $("cd-ib-pending").hidden = !c.inbody_requested;
     $("cd-wk-days").innerHTML = workoutDays(c).map((d, i) => '<div class="wk-edit"><b>' + esc(t("wk_day")) + " " + (i + 1) + "</b>" +
-      '<input id="cd-wk-link-' + i + '" type="url" dir="ltr" placeholder="https://..." value="' + esc(d.link) + '">' +
-      '<textarea id="cd-wk-note-' + i + '" rows="2" placeholder="' + esc(t("ad_wk_note")) + '">' + esc(d.note) + "</textarea></div>").join("");
+      d.parts.map((pt, j) => '<div class="wk-edit-part"><span class="wk-part-name">' + esc(t(WK_PARTS[j])) + "</span>" +
+        '<textarea id="cd-wk-note-' + i + "-" + j + '" rows="1" placeholder="' + esc(t("ad_wk_note")) + '">' + esc(pt.note) + "</textarea>" +
+        '<input id="cd-wk-link-' + i + "-" + j + '" type="url" dir="ltr" placeholder="https://..." value="' + esc(pt.link) + '"></div>').join("") + "</div>").join("");
     $("cd-workout-card").hidden = !(PACKAGES[c.package] && PACKAGES[c.package].workout);  // basic package has no workout plan
     $("cd-kcal").value = c.kcal || "";
     $("cd-kcal-msg").textContent = "";
@@ -1209,23 +1242,23 @@ if ($("admin-login")) {
       const dayTotal = m => SLOTS.reduce((a, k) => a + ((recipeById(m[k]) || {}).kcal || 0), 0);
       const planCards = plans.slice(0, 7).map((p, i) => {
         if (editPlanIdx === i) {   // Nojood edits one of the client's days
-          return '<div class="mini-plan editing"><b>' + esc(t("pt_day")) + " " + (i + 1) + "</b>" + SLOTS.map(k => '<div class="field" style="margin-top:6px"><label>' + esc(slotLabel(k)) + '</label><select data-ep="' + k + '">' +
-            recipesFor(k).map(r => '<option value="' + esc(r.id) + '"' + (p.meals[k] === r.id ? " selected" : "") + ">" + esc(rText(r, "name")) + " (" + r.kcal + ")</option>").join("") + "</select></div>").join("") +
-            "<p class='muted' id='ep-total' style='margin:8px 0'>" + esc(t("ep_total")) + " " + dayTotal(p.meals) + " / " + (c.kcal || p.kcal) + "</p>" +
-            "<div class='btn-row' style='justify-content:flex-start'><button class='btn small' id='ep-save' type='button'>" + esc(t("ad_save")) + "</button><button class='btn outline small' id='ep-cancel' type='button'>" + esc(t("ep_cancel")) + "</button></div></div>";
+          const em = editMeals || { ...p.meals };
+          return '<div class="mini-plan editing"><b>' + esc(t("pt_day")) + " " + (i + 1) + "</b><div id='ep-calc'>" + calcHTML(dayTotal(em), c.kcal || 0) + "</div>" + SLOTS.map(k => '<div class="field" style="margin-top:6px"><label>' + esc(slotLabel(k)) + (k === "s3" ? " (" + esc(t("opt_short")) + ")" : "") + '</label><select data-ep="' + k + '"><option value="">' + esc(k === "s3" ? t("calc_none") : t("ad_choose")) + "</option>" +
+            slotOptions(k, em, c.kcal || 0) + "</select></div>").join("") +
+            "<div class='btn-row' style='justify-content:flex-start'><button class='btn small' id='ep-save' type='button'>" + esc(t("ad_save")) + "</button><button class='btn outline small' id='ep-cancel' type='button'>" + esc(t("ep_cancel")) + "</button></div><p class='error' id='ep-err'></p></div>";
         }
-        return '<div class="mini-plan' + (st && st.today.plan === i ? " is-today" : "") + '"><b>' + esc(t("pt_day")) + " " + (i + 1) + " · " + esc(planTitle(p)) + "</b> <small class='muted'>(" + (p.total || dayTotal(p.meals)) + ")</small>" +
+        return '<div class="mini-plan' + (st && st.today.plan === i ? " is-today" : "") + (dayComplete(p.meals) ? "" : " incomplete") + '"><b>' + esc(t("pt_day")) + " " + (i + 1) + " · " + dayTotal(p.meals) + " " + esc(t("kcal_short")) + "</b>" + (dayComplete(p.meals) ? "" : " <span class='status-pill'>" + esc(t("ep_needs_snacks")) + "</span>") +
           ' <button class="link-btn" data-editplan="' + i + '" type="button">✏️ ' + esc(t("ep_edit")) + "</button>" + mealNamesHTML(p.meals) + "</div>";
       }).join("");
       const hist = (c.history || []).slice().reverse().slice(0, 14);
       const offNow = isOffToday(c);
-      const histRows = (st ? [{ date: st.today.date, plan: st.today.plan, done: st.done, skipped: st.slots.filter(x => x.status === "skip").length, isToday: true }] : offNow ? [{ date: c.today.date, off: true, isToday: true }] : []).concat(hist);
-      $("cd-progress").innerHTML = (st ? "<p><b>" + esc(t("ad_today")) + ":</b> " + esc(planTitle(st.plan)) + " — " + st.done + " / " + SLOTS.length + " " + esc(t("h_meals")) + "</p>" : offNow ? "<p><b>" + esc(t("ad_today")) + ":</b> 🌿 " + esc(t("off_title")) + "</p>" : "") +
+      const histRows = (st ? [{ date: st.today.date, plan: st.today.plan, done: st.done, skipped: st.slots.filter(x => x.status === "skip").length, total: st.slots.length, isToday: true }] : offNow ? [{ date: c.today.date, off: true, isToday: true }] : []).concat(hist);
+      $("cd-progress").innerHTML = (st ? "<p><b>" + esc(t("ad_today")) + ":</b> " + esc(planTitle(st.plan)) + " — " + st.done + " / " + st.slots.length + " " + esc(t("h_meals")) + "</p>" : offNow ? "<p><b>" + esc(t("ad_today")) + ":</b> 🌿 " + esc(t("off_title")) + "</p>" : "") +
         (plans.length >= 7 && !c.plans_approved ? "<div class='approve-box'><span class='status-pill'>" + esc(t("ap_pending")) + "</span><p style='margin:8px 0'>" + esc(t("ap_pro_text")) + "</p><div class='btn-row' style='justify-content:flex-start'><button class='btn' id='ap-approve' type='button'>" + esc(t("ap_approve")) + "</button><button class='btn outline' id='ap-back' type='button'>" + esc(t("ap_back")) + "</button></div></div>" : "") +
         "<div class='mini-plans'>" + planCards + "</div>" +
         "<h4>" + esc(t("ad_history")) + "</h4>" +
         (histRows.length ? "<div class='table-wrap'><table><tr><th>" + [t("h_date"), t("h_plan"), t("h_meals"), t("cd_skipped")].map(esc).join("</th><th>") + "</th></tr>" +
-          histRows.map(h => "<tr><td>" + esc(h.date) + (h.isToday ? " (" + esc(t("ad_today")) + ")" : "") + "</td>" + (h.off ? "<td>🌿 " + esc(t("off_title")) + "</td><td>—</td><td>—</td>" : "<td>" + esc(plans[h.plan] ? planTitle(plans[h.plan]) : "—") + "</td><td>" + h.done + " / " + SLOTS.length + "</td><td>" + (h.skipped || 0) + "</td>") + "</tr>").join("") + "</table></div>"
+          histRows.map(h => "<tr><td>" + esc(h.date) + (h.isToday ? " (" + esc(t("ad_today")) + ")" : "") + "</td>" + (h.off ? "<td>🌿 " + esc(t("off_title")) + "</td><td>—</td><td>—</td>" : "<td>" + esc(plans[h.plan] ? planTitle(plans[h.plan]) : "—") + "</td><td>" + h.done + " / " + (h.total || 5) + "</td><td>" + (h.skipped || 0) + "</td>") + "</tr>").join("") + "</table></div>"
           : "<p class='muted'>—</p>");
     }
 
@@ -1250,8 +1283,10 @@ if ($("admin-login")) {
       const ibs = await DB.select("inbody", "select=*&user_id=eq." + c.id + "&order=date.desc");
       $("cd-ib-last").textContent = fmtDate(ibs.length ? ibs[0].date : null);
       $("cd-ib-none").hidden = ibs.length > 0;
-      $("cd-ib-table").innerHTML = ibs.length ? "<tr><th>" + ["", t("ib_weight"), t("ib_fat"), t("ib_muscle"), "BMR"].map(esc).join("</th><th>") + "</th></tr>" +
-        ibs.map(i => "<tr><td>" + esc(fmtDate(i.date)) + "</td><td>" + (i.weight ?? "—") + "</td><td>" + (i.fat ?? "—") + "</td><td>" + (i.muscle ?? "—") + "</td><td>" + (i.bmr ?? "—") + "</td></tr>").join("") : "";
+      const ibUrls = {};
+      for (const i of ibs) if (i.photo_path) { try { ibUrls[i.id] = await DB.signedUrl("receipts", i.photo_path, 3600); } catch (e) {} }
+      $("cd-ib-table").innerHTML = ibs.length ? "<tr><th>" + ["", t("ib_report"), t("ib_weight"), t("ib_fat"), "BMR"].map(esc).join("</th><th>") + "</th></tr>" +
+        ibs.map(i => "<tr><td>" + esc(fmtDate(i.date)) + "</td><td>" + (ibUrls[i.id] ? '<a href="' + esc(ibUrls[i.id]) + '" target="_blank" rel="noopener">📄 ' + esc(t("ib_view")) + "</a>" : "—") + "</td><td>" + (i.weight ?? "—") + "</td><td>" + (i.fat ?? "—") + "</td><td>" + (i.bmr ?? "—") + "</td></tr>").join("") : "";
     } catch (e) {}
   }
   async function changeClient(changes, text) {
@@ -1263,8 +1298,8 @@ if ($("admin-login")) {
   $("reject-pay").addEventListener("click", () => changeClient({ pay_status: "rejected" }));
   $("send-ib").addEventListener("click", () => changeClient({ inbody_requested: true, inbody_requested_at: new Date().toISOString() }, t("ad_ib_sent")));
   $("cd-workout-save").addEventListener("click", async () => {
-    const days = [0, 1, 2, 3, 4].map(i => ({ link: $("cd-wk-link-" + i).value.trim(), note: $("cd-wk-note-" + i).value.trim() }));
-    if (days.some(d => d.link && !/^https?:\/\//i.test(d.link))) { $("cd-workout-msg").textContent = t("err_link"); return; }
+    const days = [0, 1, 2, 3, 4].map(i => ({ parts: [0, 1, 2].map(j => ({ link: $("cd-wk-link-" + i + "-" + j).value.trim(), note: $("cd-wk-note-" + i + "-" + j).value.trim() })) }));
+    if (days.some(d => d.parts.some(pt => pt.link && !/^https?:\/\//i.test(pt.link)))) { $("cd-workout-msg").textContent = t("err_link"); return; }
     await changeClient({ workout_days: days });
     $("cd-workout-msg").textContent = t("ad_saved_ok");
   });
@@ -1276,23 +1311,29 @@ if ($("admin-login")) {
   });
   let resetArmed = false;
   let backArmed = false, editPlanIdx = null, editFor = null;
+  let editMeals = null;   // the day being edited, before it is saved
   $("cd-progress").addEventListener("change", e => {
     if (!e.target.dataset.ep) return;
-    const c = clientById(openClient), sum = SLOTS.reduce((a, k) => a + ((recipeById($("cd-progress").querySelector('[data-ep="' + k + '"]').value) || {}).kcal || 0), 0);
-    $("ep-total").textContent = t("ep_total") + " " + sum + " / " + (c.kcal || "—");
+    editMeals = {}; SLOTS.forEach(k => { editMeals[k] = $("cd-progress").querySelector('[data-ep="' + k + '"]').value; });
+    renderDetail();   // redraws the calculator and the lists that still fit
   });
   $("cd-progress").addEventListener("click", async e => {
     const ed = e.target.closest("[data-editplan]");
-    if (ed) { editPlanIdx = +ed.dataset.editplan; editFor = openClient; return renderDetail(); }
-    if (e.target.id === "ep-cancel") { editPlanIdx = null; return renderDetail(); }
+    if (ed) { editPlanIdx = +ed.dataset.editplan; editFor = openClient; editMeals = null; return renderDetail(); }
+    if (e.target.id === "ep-cancel") { editPlanIdx = null; editMeals = null; return renderDetail(); }
     if (e.target.id === "ep-save") {
       const c = clientById(openClient), plans = (c.plans || []).map(x => ({ ...x, meals: { ...x.meals } }));
       const meals = {}; SLOTS.forEach(k => { meals[k] = $("cd-progress").querySelector('[data-ep="' + k + '"]').value; });
-      plans[editPlanIdx] = { ...plans[editPlanIdx], meals, total: SLOTS.reduce((a, k) => a + ((recipeById(meals[k]) || {}).kcal || 0), 0), edited_by_dietitian: true };
-      editPlanIdx = null; busy(e.target, true);
+      if (!dayComplete(meals)) { $("ep-err").textContent = t("err_sched"); return; }
+      plans[editPlanIdx] = { ...plans[editPlanIdx], meals, total: mealsTotal(meals), edited_by_dietitian: true };
+      editPlanIdx = null; editMeals = null; busy(e.target, true);
       return changeClient({ plans }, t("ep_saved"));
     }
-    if (e.target.id === "ap-approve") { busy(e.target, true); await changeClient({ plans_approved: true, today: null }, t("ap_done")); }
+    if (e.target.id === "ap-approve") {
+      const c = clientById(openClient);
+      if (!(c.plans || []).slice(0, 7).every(p => dayComplete(p.meals))) { msg(t("ap_incomplete")); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+      busy(e.target, true); await changeClient({ plans_approved: true, today: null }, t("ap_done"));
+    }
     if (e.target.id === "ap-back") {
       if (!backArmed) { backArmed = true; e.target.textContent = t("ap_back_sure"); return; }
       backArmed = false; await changeClient({ plans: [], plans_approved: false, today: null }, t("ap_back_done"));
