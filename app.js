@@ -803,8 +803,8 @@ if ($("login-form")) {
       const L = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       const R = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
       const ar = LANG === "ar";
-      $("prev-btn").innerHTML = (ar ? R : L) + "<small>" + esc(t("btn_prev_meal")) + "</small>";
-      $("nextm-btn").innerHTML = (ar ? L : R) + "<small>" + esc(t("btn_next_meal")) + "</small>";
+      $("prev-btn").innerHTML = (ar ? L : R) + "<small>" + esc(t("btn_prev_meal")) + "</small>";
+      $("nextm-btn").innerHTML = (ar ? R : L) + "<small>" + esc(t("btn_next_meal")) + "</small>";
       $("prev-btn").ariaLabel = t("btn_prev_meal"); $("nextm-btn").ariaLabel = t("btn_next_meal");
       $("prev-btn").disabled = i <= 0;
       $("nextm-btn").disabled = i >= st.slots.length - 1;
