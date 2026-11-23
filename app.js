@@ -773,6 +773,13 @@ if ($("login-form")) {
   }
 
   // ---------- Step 3: today's meals one by one ----------
+  // which of today's meals is on screen (null = the next one not done yet)
+  let viewSlot = null, viewDay = null;
+  function shownSlot(st) {
+    const day = st.today.date + "|" + st.today.plan;
+    if (day !== viewDay) { viewDay = day; viewSlot = null; }   // new day or new schedule: start from the next meal
+    return (viewSlot && st.slots.find(s => s.k === viewSlot)) || st.next || null;
+  }
   function renderToday(c, st) {
     $("p-sched").textContent = dayTitle(st.today.plan);
     $("p-done").textContent = st.done;
@@ -781,32 +788,58 @@ if ($("login-form")) {
     $("p-days").textContent = (c.history || []).filter(h => h.done > 0).length + (st.done > 0 ? 1 : 0);
     $("p-bar").style.width = Math.round((st.handled / st.slots.length) * 100) + "%";
     $("change-day").hidden = st.handled > 0;
-    $("next-card").hidden = !st.next;
-    $("finished-card").hidden = !!st.next;
+    const cur = shownSlot(st);
+    $("next-card").hidden = !cur;
+    $("finished-card").hidden = !!st.next || !!(cur && viewSlot);
     document.querySelector("#v-plan [data-offday]").hidden = !st.next;
-    if (st.next && st.next.recipe) {
-      const r = st.next.recipe;
-      $("n-type").textContent = slotLabel(st.next.k);
-      $("n-name").textContent = rText(r, "name");
-
-      $("n-ing").textContent = rText(r, "ing");
-      $("n-steps").textContent = rText(r, "steps");
+    if (cur) {
+      const i = st.slots.indexOf(cur), r = cur.recipe;
+      $("n-eyebrow").textContent = cur.status === "done" ? "✅ " + t("st_done") : cur.status === "skip" ? "⏭️ " + t("st_skipped") : st.next && cur.k === st.next.k ? t("pt_next") : t("st_later");
+      $("n-type").textContent = slotLabel(cur.k) + "  (" + (i + 1) + "/" + st.slots.length + ")";
+      $("n-name").textContent = r ? rText(r, "name") : "";
+      $("n-ing").textContent = r ? rText(r, "ing") : "";
+      $("n-steps").textContent = r ? rText(r, "steps") : "";
+      $("prev-btn").disabled = i <= 0;
+      $("nextm-btn").disabled = i >= st.slots.length - 1;
+      $("done-btn").hidden = $("skip-btn").hidden = !!cur.status;
+      $("undo-btn").hidden = !cur.status;
     }
     $("today-list").innerHTML = st.slots.map(s => {
       const isNext = st.next && s.k === st.next.k;
       const label = s.status === "done" ? t("st_done") : s.status === "skip" ? t("st_skipped") : isNext ? t("st_next") : t("st_later");
-      const cls = s.status ? "is-" + s.status : isNext ? "is-next" : "";
-      return '<li class="' + cls + '"><span class="icon">' + (statusIcon[s.status] || "🍽️") + "</span><span class='grow'><b>" + esc(slotLabel(s.k)) + "</b> — " +
+      const cls = (s.status ? "is-" + s.status : isNext ? "is-next" : "") + (cur && s.k === cur.k ? " is-shown" : "");
+      return '<li class="' + cls + '" data-slot="' + s.k + '" role="button" tabindex="0"><span class="icon">' + (statusIcon[s.status] || "🍽️") + "</span><span class='grow'><b>" + esc(slotLabel(s.k)) + "</b> — " +
         esc(s.recipe ? rText(s.recipe, "name") : "") + "</span><span class='tag'>" + esc(label) + "</span></li>";
     }).join("");
   }
+  function showSlot(k) {
+    viewSlot = k;
+    const st = dayState(me); if (st) renderToday(me, st);
+    $("next-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function stepSlot(d) {
+    const st = dayState(me); if (!st) return;
+    const cur = shownSlot(st); if (!cur) return;
+    const n = st.slots[st.slots.indexOf(cur) + d]; if (n) showSlot(n.k);
+  }
   async function mark(status, btn) {
-    const st = dayState(me); if (!st || !st.next) return;
+    const st = dayState(me); if (!st) return;
+    const cur = shownSlot(st); if (!cur) return;
+    const prog = { ...(st.today.progress || {}) };
+    if (status) prog[cur.k] = status; else delete prog[cur.k];
     busy(btn, true);
-    try { await updateMe({ today: { ...st.today, progress: { ...(st.today.progress || {}), [st.next.k]: status } } }); } finally { busy(btn, false); }
+    try {
+      viewSlot = status ? null : cur.k;   // after تم/تخطي go to the next open meal; after undo stay here
+      await updateMe({ today: { ...st.today, progress: prog } });
+    } finally { busy(btn, false); }
   }
   $("done-btn").addEventListener("click", () => mark("done", $("done-btn")));
   $("skip-btn").addEventListener("click", () => mark("skip", $("skip-btn")));
+  $("undo-btn").addEventListener("click", () => mark(null, $("undo-btn")));
+  $("prev-btn").addEventListener("click", () => stepSlot(-1));
+  $("nextm-btn").addEventListener("click", () => stepSlot(1));
+  $("today-list").addEventListener("click", e => { const li = e.target.closest("[data-slot]"); if (li) showSlot(li.dataset.slot); });
+  $("today-list").addEventListener("keydown", e => { const li = e.target.closest("[data-slot]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); showSlot(li.dataset.slot); } });
   $("change-day").addEventListener("click", async () => { await updateMe({ today: null }); });
   // finished the day → save it and choose the next plan from the 7
   $("next-sched").addEventListener("click", async () => {

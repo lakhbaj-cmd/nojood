@@ -365,3 +365,9 @@ details p { margin: 6px 0 0; color: var(--text); }
 .wk-part-name, .wk-edit-part .wk-part-name { font-weight: 700; color: var(--green); font-size: .9rem; }
 .wk-part .wk-note { margin: 0; }
 .wk-edit-part { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; }
+
+/* move between today's meals */
+.meal-nav { justify-content: space-between; margin-top: 10px; }
+.meal-nav .btn:disabled { opacity: .35; }
+#today-list li[data-slot] { cursor: pointer; }
+#today-list li.is-shown { outline: 2px solid var(--accent); outline-offset: -2px; }

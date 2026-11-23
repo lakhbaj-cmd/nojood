@@ -524,3 +524,7 @@ Object.assign(I18N.ar, {
 // ===== 3 workout links per day =====
 Object.assign(I18N.en, { wk_warm: "Warm up", wk_main: "Exercises", wk_cool: "Cool down", ad_wk_note: "Note (shows above the link)" });
 Object.assign(I18N.ar, { wk_warm: "الإحماء", wk_main: "التمارين", wk_cool: "التهدئة", ad_wk_note: "ملاحظة (تطلع فوق الرابط)" });
+
+// ===== move between today's meals =====
+Object.assign(I18N.en, { btn_prev_meal: "‹ Previous meal", btn_next_meal: "Next meal ›", btn_undo: "↩ Undo" });
+Object.assign(I18N.ar, { btn_prev_meal: "› الوجبة السابقة", btn_next_meal: "الوجبة التالية ‹", btn_undo: "↩ تراجع" });

@@ -209,7 +209,7 @@
         <button class="btn outline off-btn" type="button" data-offday>🌿 <span data-i18n="off_btn"></span></button>
 
         <div class="card next-meal" id="next-card">
-          <p class="eyebrow" data-i18n="pt_next"></p>
+          <p class="eyebrow" id="n-eyebrow"></p>
           <p class="meal-type" id="n-type"></p>
           <h3 id="n-name"></h3>
 
@@ -218,6 +218,11 @@
           <div class="btn-row" style="justify-content:flex-start;margin-top:14px">
             <button class="btn" id="done-btn" data-i18n="btn_done"></button>
             <button class="btn outline" id="skip-btn" data-i18n="btn_skip"></button>
+            <button class="btn outline" id="undo-btn" data-i18n="btn_undo" hidden></button>
+          </div>
+          <div class="btn-row meal-nav">
+            <button class="btn small outline" id="prev-btn" data-i18n="btn_prev_meal"></button>
+            <button class="btn small outline" id="nextm-btn" data-i18n="btn_next_meal"></button>
           </div>
         </div>
 
