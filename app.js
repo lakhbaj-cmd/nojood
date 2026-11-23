@@ -799,6 +799,8 @@ if ($("login-form")) {
       $("n-name").textContent = r ? rText(r, "name") : "";
       $("n-ing").textContent = r ? rText(r, "ing") : "";
       $("n-steps").textContent = r ? rText(r, "steps") : "";
+      $("prev-btn").textContent = LANG === "ar" ? "›" : "‹"; $("prev-btn").title = $("prev-btn").ariaLabel = t("btn_prev_meal");
+      $("nextm-btn").textContent = LANG === "ar" ? "‹" : "›"; $("nextm-btn").title = $("nextm-btn").ariaLabel = t("btn_next_meal");
       $("prev-btn").disabled = i <= 0;
       $("nextm-btn").disabled = i >= st.slots.length - 1;
       $("done-btn").hidden = $("skip-btn").hidden = !!cur.status;

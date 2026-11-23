@@ -210,8 +210,11 @@
 
         <div class="card next-meal" id="next-card">
           <p class="eyebrow" id="n-eyebrow"></p>
-          <p class="meal-type" id="n-type"></p>
-          <h3 id="n-name"></h3>
+          <div class="meal-head">
+            <button class="nav-arrow" id="prev-btn" type="button"></button>
+            <div class="grow"><p class="meal-type" id="n-type"></p><h3 id="n-name"></h3></div>
+            <button class="nav-arrow" id="nextm-btn" type="button"></button>
+          </div>
 
           <details open><summary data-i18n="pt_ingredients"></summary><p id="n-ing"></p></details>
           <details><summary data-i18n="pt_how"></summary><p id="n-steps"></p></details>
@@ -219,10 +222,6 @@
             <button class="btn" id="done-btn" data-i18n="btn_done"></button>
             <button class="btn outline" id="skip-btn" data-i18n="btn_skip"></button>
             <button class="btn outline" id="undo-btn" data-i18n="btn_undo" hidden></button>
-          </div>
-          <div class="btn-row meal-nav">
-            <button class="btn small outline" id="prev-btn" data-i18n="btn_prev_meal"></button>
-            <button class="btn small outline" id="nextm-btn" data-i18n="btn_next_meal"></button>
           </div>
         </div>
 
