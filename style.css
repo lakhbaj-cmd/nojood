@@ -369,7 +369,8 @@ details p { margin: 6px 0 0; color: var(--text); }
 /* move between today's meals */
 .meal-head { display: flex; align-items: center; gap: 10px; }
 .meal-head .grow { flex: 1; min-width: 0; text-align: center; }
-.nav-arrow { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--text); font-size: 24px; line-height: 1; cursor: pointer; padding: 0 0 3px; }
+.nav-arrow { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 58px; padding: 6px 0; border-radius: 14px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; font: inherit; }
+.nav-arrow small { font-size: 11px; color: var(--muted); }
 .nav-arrow:disabled { opacity: .25; cursor: default; }
 #today-list li[data-slot] { cursor: pointer; }
 #today-list li.is-shown { outline: 2px solid var(--accent); outline-offset: -2px; }

@@ -799,9 +799,13 @@ if ($("login-form")) {
       $("n-name").textContent = r ? rText(r, "name") : "";
       $("n-ing").textContent = r ? rText(r, "ing") : "";
       $("n-steps").textContent = r ? rText(r, "steps") : "";
-      // Arabic: ‹ next meal on the left, › previous meal on the right (English is the mirror)
-      $("prev-btn").textContent = LANG === "ar" ? "›" : "‹"; $("prev-btn").title = $("prev-btn").ariaLabel = t("btn_prev_meal");
-      $("nextm-btn").textContent = LANG === "ar" ? "‹" : "›"; $("nextm-btn").title = $("nextm-btn").ariaLabel = t("btn_next_meal");
+      // Arabic: next meal on the left, previous on the right (English is the mirror). Drawn arrows so phones can't flip them.
+      const L = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const R = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      const ar = LANG === "ar";
+      $("prev-btn").innerHTML = (ar ? R : L) + "<small>" + esc(t("btn_prev_meal")) + "</small>";
+      $("nextm-btn").innerHTML = (ar ? L : R) + "<small>" + esc(t("btn_next_meal")) + "</small>";
+      $("prev-btn").ariaLabel = t("btn_prev_meal"); $("nextm-btn").ariaLabel = t("btn_next_meal");
       $("prev-btn").disabled = i <= 0;
       $("nextm-btn").disabled = i >= st.slots.length - 1;
       $("done-btn").hidden = $("skip-btn").hidden = !!cur.status;
